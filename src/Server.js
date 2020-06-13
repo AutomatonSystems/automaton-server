@@ -2,7 +2,7 @@ import URL from 'url';
 import http from 'http';
 import fs from 'fs';
 import zlib from 'zlib';
-import path from 'path';
+import Path from 'path';
 
 import {AuthenticationAuthorizationSystem, NO_AUTH, MicrosoftAuth} from './AuthenticationAuthorizationSystem.js';
 
@@ -30,10 +30,7 @@ export default class Server{
 		NO_AUTH: NO_AUTH
 	};
 
-	/**
-	 * @type {Handler[]}
-	 */
-	#handlers = [];
+	#api = {};
 
 	/** @type {AuthenticationAuthorizationSystem} */
 	#auth;
@@ -72,13 +69,107 @@ export default class Server{
 		return {};
 	}
 
+	api(root, auth = this.#auth){
+		if(!this.#api[root]){
+			this.#api[root] = new API(this, root, auth);
+		}
+		return this.#api[root];
+	}
+
+	async handle(req, res){
+		let reply = new Responder(res, null);
+		try{
+			let parsedUrl = URL.parse(req.url.trim(), true);
+			reply.path = parsedUrl.pathname;
+
+			let method = req.method.toUpperCase();
+			let path = URL.parse(req.url.trim(), true)
+						.pathname
+						.toLowerCase();
+			if(path.endsWith('/'))
+				path = path.substring(0,path.length-1);
+	
+			let [,root] = path.split('/');
+
+			let request = new RequestWrapper(req);
+	
+			// API endpoints
+			if(this.#api[root]){
+				return this.#api[root].handle(method, path, request, reply);
+			}
+
+			// status endpoint
+			if(parsedUrl.pathname == '/status'){
+				return reply.json({
+					service: this.name,
+					version: VERSION,
+					status: "Service is online!"
+				});
+			}
+	
+			// UI endpoints
+			if(parsedUrl.pathname == '/basic.js'){
+				return reply.file(Path.resolve(__dirname, '/basic.js'));
+			}
+
+			let valid = (path)=>{try{return fs.lstatSync(path).isFile()}catch(_){return false}}
+	
+			// check if I need to serve a file
+			let asset = './public/'+parsedUrl.pathname;
+			if(valid(asset)){
+				return reply.file(asset);
+			}else if(valid(asset + '.html')){
+				return reply.file(asset + '.html');
+			}else if(valid(asset + '/index.html')){
+				return reply.file(asset + '/index.html');
+			}
+			asset = './public/' + parsedUrl.pathname.substring(1,parsedUrl.pathname.indexOf('/',1)) + '.html';
+			if(valid(asset)){
+				return reply.file(asset);
+			}
+	
+			//no data
+			return reply.error("File not found", 404);
+		}catch(e){
+			console.warn(e);
+			return reply.error("Error handling request", 500);
+		}
+	}
+
+	
+}
+
+class API{
+
+	root;
+
+	/**
+	 * @type {Handler[]}
+	 */
+	#handlers = [];
+	#auth;
+
+	constructor(server, root, auth){
+		this.server = server;
+		this.root = root;
+		this.#auth = auth;
+	}
+
+	async handle(method, path, request, responder){
+		for(let handler of this.#handlers){
+			if(await handler.handle(method, path, request, responder))
+				return true;
+		}
+		return responder.error('Endpoint not recognized', 404);
+	}
+
 	/**
 	 * 
 	 * @param {String} method
 	 * @param {String} path
 	 * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
 	 */
-	api(method, path, ...args){
+	endpoint(method, path, ...args){
 		let auth = this.#auth;
 		let func;
 		let body = null;
@@ -107,7 +198,7 @@ export default class Server{
 	 * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
 	 */
 	get(path, ...args){
-		return this.api("GET",  path, ...args);
+		return this.endpoint("GET",  path, ...args);
 	}
 
 	/**
@@ -118,73 +209,7 @@ export default class Server{
 	 * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
 	 */
 	post(path, ...args){
-		return this.api("POST", path, ...args);
-	}
-
-	async handle(req, res){
-		let reply = new Responder(res, null);
-		try{
-			let parsedUrl = URL.parse(req.url.trim(), true);
-			reply.path = parsedUrl.pathname;
-
-			// API endpoints
-			if(parsedUrl.pathname.startsWith('/api/')){
-				return this.process(req, reply);
-			}
-
-			// status endpoint
-			if(parsedUrl.pathname == '/status'){
-				return reply.json({
-					service: this.name,
-					version: VERSION,
-					status: "Service is online!"
-				});
-			}
-	
-			// UI endpoints
-			if(parsedUrl.pathname == '/basic.js'){
-				return reply.file(path.resolve(__dirname, '/basic.js'));
-			}
-
-			let valid = (path)=>{try{return fs.lstatSync(path).isFile()}catch(_){return false}}
-	
-			// check if I need to serve a file
-			let asset = './public/'+parsedUrl.pathname;
-			if(valid(asset)){
-				return reply.file(asset);
-			}else if(valid(asset + '.html')){
-				return reply.file(asset + '.html');
-			}else if(valid(asset + '/index.html')){
-				return reply.file(asset + '/index.html');
-			}
-			asset = './public/' + parsedUrl.pathname.substring(1,parsedUrl.pathname.indexOf('/',1)) + '.html';
-			if(valid(asset)){
-				return reply.file(asset);
-			}
-	
-			//no data
-			return reply.error("File not found", 404);
-		}catch(e){
-			console.warn(e);
-			return reply.error("Error handling request", 500);
-		}
-	}
-
-	async process(req, responder){
-		let method = req.method.toUpperCase();
-		let path = URL.parse(req.url.trim(), true)
-					.pathname.substr(5)
-					.toLowerCase();
-		if(path.endsWith('/'))
-			path = path.substring(0,path.length-1);
-
-		let request = new RequestWrapper(req);
-
-		for(let handler of this.#handlers){
-			if(await handler.handle(method, path, request, responder))
-				return true;
-		}
-		return responder.error('Endpoint not recognized', 404);
+		return this.endpoint("POST", path, ...args);
 	}
 }
 
