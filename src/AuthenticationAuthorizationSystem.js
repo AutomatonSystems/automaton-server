@@ -1,3 +1,4 @@
+import fetch from 'node-fetch';
 
 let id = 0;
 /**
@@ -21,7 +22,7 @@ export class AuthenticationAuthorizationSystem {
 		let user = await this.authentication(req);
 		if(user == null)
 			return null;
-		let permissions = this.authorization(user.username);
+		let permissions = await this.authorization(user.username);
 		return {
 			user: user,
 			permissions: permissions
