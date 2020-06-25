@@ -29,8 +29,15 @@ export default class Server{
 		// Static auth types
 		NO_AUTH: NO_AUTH
 	};
+	static Mimes = {
+		js :'application/javascript',
+		css: 'text/css',
+		jpg: 'image/jpg'
+	}
 
 	#api = {};
+
+	#serve = {};
 
 	/** @type {AuthenticationAuthorizationSystem} */
 	#auth;
@@ -69,6 +76,25 @@ export default class Server{
 		return {};
 	}
 
+	/**
+	 * 
+	 * @param {String} folder 
+	 * @param {String} path 
+	 * 
+	 * @returns {Server}
+	 */
+	serve(folder, path='/'){
+		this.#serve[folder] = path;
+		return this;
+	}
+
+	/**
+	 * 
+	 * @param {String} root 
+	 * @param {AuthenticationAuthorizationSystem} auth 
+	 * 
+	 * @returns {API}
+	 */
 	api(root, auth = this.#auth){
 		if(!this.#api[root]){
 			this.#api[root] = new API(this, root, auth);
@@ -114,18 +140,26 @@ export default class Server{
 
 			let valid = (path)=>{try{return fs.lstatSync(path).isFile()}catch(_){return false}}
 	
-			// check if I need to serve a file
-			let asset = './public/'+parsedUrl.pathname;
-			if(valid(asset)){
-				return reply.file(asset);
-			}else if(valid(asset + '.html')){
-				return reply.file(asset + '.html');
-			}else if(valid(asset + '/index.html')){
-				return reply.file(asset + '/index.html');
-			}
-			asset = './public/' + parsedUrl.pathname.substring(1,parsedUrl.pathname.indexOf('/',1)) + '.html';
-			if(valid(asset)){
-				return reply.file(asset);
+			for(let prefix of Object.keys(this.#serve)){
+
+				let requested = parsedUrl.pathname;
+
+				if(requested.startsWith(this.#serve[prefix])){
+					requested = requested.substring(this.#serve[prefix].length);
+					// check if I need to serve a file
+					let asset = prefix+'/'+requested;
+					if(valid(asset)){
+						return reply.file(asset);
+					}else if(valid(asset + '.html')){
+						return reply.file(asset + '.html');
+					}else if(valid(asset + '/index.html')){
+						return reply.file(asset + '/index.html');
+					}
+					/*asset = asset.substring(1,parsedUrl.pathname.indexOf('/',1)) + '.html';
+					if(valid(asset)){
+						return reply.file(asset);
+					}*/
+				}
 			}
 	
 			//no data
@@ -168,6 +202,8 @@ class API{
 	 * @param {String} method
 	 * @param {String} path
 	 * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
+	 * 
+	 * @returns {API}
 	 */
 	endpoint(method, path, ...args){
 		let auth = this.#auth;
@@ -196,6 +232,8 @@ class API{
 	 * 
 	 * @param {String} path
 	 * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
+	 * 
+	 * @returns {API}
 	 */
 	get(path, ...args){
 		return this.endpoint("GET",  path, ...args);
@@ -207,9 +245,24 @@ class API{
 	 * 
 	 * @param {String} path
 	 * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
+	 * 
+	 * @returns {API}
 	 */
 	post(path, ...args){
 		return this.endpoint("POST", path, ...args);
+	}
+
+	/**
+	 * 
+	 * create a new API delete endpoint
+	 * 
+	 * @param {String} path
+	 * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
+	 * 
+	 * @returns {API}
+	 */
+	delete(path, ...args){
+		return this.endpoint("DELETE", path, ...args);
 	}
 }
 
@@ -230,14 +283,14 @@ class Responder{
 		return await this.raw(JSON.stringify(json, null, '\t'),{status, zip, cors});
 	}
 	
+	/**
+	 * 
+	 * @param {String} path 
+	 * @param {*} param1 
+	 */
 	async file(path, {status= 200, zip= false, cors=false}={}){
-		let mime = 'text/html';
-		if(path.endsWith('js')) {
-			mime = 'application/javascript';
-		}
-		if(path.endsWith('css')) {
-			mime = 'text/css';
-		}
+		let ext = path.substring(path.lastIndexOf('.')+1);
+		let mime = Server.Mimes[ext] || 'text/html';
 		return await new Promise(resFile => 
 			fs.readFile(path, async (_, content) =>{
 				resFile(await this.raw(content,{status, zip, cors, type: mime}));
@@ -299,7 +352,7 @@ class RequestWrapper{
 							res(string);
 						});
 					});
-				if(format=='json')
+				if(format=='JSON')
 					return JSON.parse(text);
 				return text;
 			}
@@ -316,6 +369,9 @@ class RequestWrapper{
 						res(buffer);
 					});
 				});
+			}
+			case 'FORM':{
+				new FormData()
 			}
 		}
 	}
