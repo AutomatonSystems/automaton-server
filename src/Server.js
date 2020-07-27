@@ -92,12 +92,14 @@ export default class Server{
 
 	/**
 	 * 
-	 * @param {String} folder 
+	 * Serve files in {folder} at {path}
+	 * 
 	 * @param {String} path 
+	 * @param {String} folder 
 	 * 
 	 * @returns {Server}
 	 */
-	serve(folder, path='/'){
+	serve(path, folder){
 		this.#serve[folder] = path;
 		return this;
 	}
@@ -150,16 +152,14 @@ export default class Server{
 			reply.path = parsedUrl.pathname;
 
 			let method = req.method.toUpperCase();
-			// lowercase path
-			let path = URL.parse(req.url.trim(), true)
-						.pathname
-						.toLowerCase();
-			// strip trailing slash
-			if(path.endsWith('/'))
-				path = path.substring(0,path.length-1);
+			// path
+			let path = URL.parse(req.url.trim(), true).pathname;
+			if(!path.endsWith('/')){
+				path += '/';
+			}
 
 			// check if request overlaps an API endpoint
-			let apiRoot = Object.keys(this.#api).find(root=>path.startsWith(root));
+			let apiRoot = Object.keys(this.#api).find(root=>path.toLowerCase().startsWith(root));
 			if(apiRoot){
 				let api = this.#api[apiRoot];
 				return api.handle(method, path, req, reply);

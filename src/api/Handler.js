@@ -87,7 +87,7 @@ export default class Handler {
 		// auth system to 
 		this.#auth = auth;
 
-		this.path = new RegExp(path);
+		this.path = new RegExp(path,'i');
 		this.method = method;
 
 		this.func = func;

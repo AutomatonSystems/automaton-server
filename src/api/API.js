@@ -71,7 +71,16 @@ export default class API {
 				auth = arg;
 			}
 		}
-		this.#handlers.push(new Handler(this.#root + path, method, body, auth, params, func));
+		// create the path
+		if(path==null){
+			path = '/';
+		}
+		if(path.startsWith('/')){
+			path = path.substring(1);
+		}
+		path = this.#root + path;
+		// actually register the handler
+		this.#handlers.push(new Handler(path, method, body, auth, params, func));
 		return this;
 	}
 

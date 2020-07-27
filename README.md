@@ -1,4 +1,26 @@
 # automaton-server
 
-A simple combined file and REST server for rapid webapp prototyping
+A simple combined file and API server for rapid webapp building.
+
+## Usage
+
+`npm install automaton-server`
+
+### Basic Example
+```javascript
+import Server from 'automaton-server';
+
+let server = new Server('test', Server.Auth.NO_AUTH);
+server
+	.serve('/','./public')
+	.api('api')
+		.get('item/{id:number}', async (reply, {id})=>{
+			return await reply.json({id: id});
+		});
+server.start(80);
+```
+
+Creates a new server with no authentication on localhost (port 80).
+* This server will serve the contents of the local directory `/public/` at http://localhost:80/ by default serving index.html at root
+* HTTP GET Requests to http://localhost:80/api/item/17 will get the json response `{"id": 17}`, note the value 17 has been correctly parsed to a number
 
