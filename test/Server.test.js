@@ -35,8 +35,9 @@ describe('Server', ()=>{
 	SERVER.api('echo').get('{value}', (reply,{value})=>reply.json(value));
 
 	// setup an api with multiple endpoints
-	SERVER.api('api').get('basic', (reply)=>reply.json(PING_RESPONSE));
+	SERVER.api('api').get('basic', (reply)=>reply.json(PING_RESPONSE));	
 	SERVER.api('api').get('multiple-values/{a}/{b:number}/{c:json}/{d:boolean}', (reply,{a,b,c,d})=>reply.json({a,b,c,d}));
+	SERVER.api('api').get('multiple-values/{a}/{b:number}', (reply,{a,b})=>reply.json(a + b));
 
 	describe('api(path)', ()=>{
 		it('Can serve a basic response on api root', async ()=>{
@@ -63,6 +64,12 @@ describe('Server', ()=>{
 			let multiple = await getJson('api/multiple-values/stringThing/100/{"key":"value"}/true');
 			// NB stringThing is mixed case! It should match exactly and not be lowercase!
 			assert.deepEqual(multiple, {"a": "stringThing", "b": 100, "c": {"key":"value"}, "d": true});
+		});
+
+		it('Matches the correct path where overlap exists', async ()=>{
+			let multiple = await getJson('api/multiple-values/stringThing/100');
+			// NB stringThing is mixed case! It should match exactly and not be lowercase!
+			assert.deepEqual(multiple, "stringThing100");
 		});
 	});
 

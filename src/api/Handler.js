@@ -75,7 +75,7 @@ export default class Handler {
 		// extract path args
 		while (path.includes('{')) {
 			let variable = path.substring(path.indexOf('{'), path.indexOf('}') + 1);
-			path = path.replace(variable, "([^/]*)");
+			path = path.replace(variable, "([^/]+)");
 			this.pathVariables.push(parseVariableFactory(variable.substring(1, variable.length - 1)));
 		}
 		// add query params
