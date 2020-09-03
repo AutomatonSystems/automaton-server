@@ -29,6 +29,8 @@ export default class AuthenticationAuthorizationSystem {
 		if(user == null)
 			return null;
 		let permissions = await this.authorization(user.username);
+		if(permissions == null)
+			return null;
 		return {
 			user: user,
 			permissions: permissions

@@ -32,7 +32,9 @@ export default class Server{
 		html: 'text/html',
 		js :'application/javascript',
 		css: 'text/css',
-		jpg: 'image/jpg'
+		jpg: 'image/jpg',
+		png: 'image/png',
+		svg: 'image/svg+xml'
 	}
 
 	#api = {};
