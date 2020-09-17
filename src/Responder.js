@@ -8,7 +8,8 @@ import Server from './Server.js';
 export default class Responder {
 	response;
 
-	constructor(response, path) {
+	constructor(request, response, path) {
+		this.request = request;
 		this.response = response;
 		this.path = path;
 	}

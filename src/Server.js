@@ -147,7 +147,7 @@ export default class Server{
 	 * @param {*} res 
 	 */
 	async handle(req, res){
-		let reply = new Responder(res, null);
+		let reply = new Responder(req, res, null);
 		try{
 			// pre-process incoming request
 			let parsedUrl = URL.parse(req.url.trim(), true);
