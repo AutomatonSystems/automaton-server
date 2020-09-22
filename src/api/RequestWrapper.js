@@ -49,10 +49,10 @@ export default class RequestWrapper {
 	 * @param {"JSON"|"STRING"|"BLOB"} format 
 	 */
 	async readBody(format) {
-		switch (format) {
+		switch (format.toLowerCase()) {
 			// grab the text/json from a post body
-			case 'JSON':
-			case 'STRING': {
+			case 'json':
+			case 'string': {
 				let text = await new Promise((res) => {
 					var string = '';
 					this.req.on('data', function (data) {
@@ -62,11 +62,11 @@ export default class RequestWrapper {
 						res(string);
 					});
 				});
-				if (format == 'JSON')
+				if (format.toLowerCase() == 'json')
 					return JSON.parse(text);
 				return text;
 			}
-			case 'BLOB': {
+			case 'blob': {
 				return new Promise((res) => {
 					var data = [];
 					this.req.on('data', function (chunk) {

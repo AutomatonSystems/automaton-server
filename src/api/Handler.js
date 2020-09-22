@@ -20,7 +20,7 @@ function parseVariableFactory(input) {
 		set: (obj, value) => {
 			if (!value)
 				return;
-			switch (type) {
+			switch (type?.toLowerCase()) {
 				case 'number':
 					value = parseFloat(value);
 					break;
@@ -125,6 +125,7 @@ export default class Handler {
 			v.set(args, request.param(v.name));
 
 		// add permissions
+		args['user'] = user.user;
 		args['permissions'] = user.permissions;
 
 		// grab the body if requested
@@ -136,3 +137,4 @@ export default class Handler {
 		return await this.func(reply, args);
 	}
 }
+

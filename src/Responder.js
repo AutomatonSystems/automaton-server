@@ -26,6 +26,16 @@ export default class Responder {
 		return await this.json({ "error": info, "path": this.path }, { status: code });
 	}
 
+	/**
+	 * 
+	 * Return a json response
+	 * 
+	 * @param {*} html 
+	 * @param {{status?: number, zip?: boolean, cors?: boolean}} param1 
+	 */
+	async html(html, { status = 200, zip = false, cors = false } = {}) {
+		return await this.raw(html, { encoding: 'utf8', status, zip, cors });
+	}
 
 	/**
 	 * 
@@ -35,7 +45,7 @@ export default class Responder {
 	 * @param {{status?: number, zip?: boolean, cors?: boolean}} param1 
 	 */
 	async json(json, { status = 200, zip = false, cors = false } = {}) {
-		return await this.raw(JSON.stringify(json, null, '\t'), { utf8: true, status, zip, cors });
+		return await this.raw(JSON.stringify(json, null, '\t'), { encoding: 'utf8', status, zip, cors });
 	}
 
     /**
@@ -47,12 +57,12 @@ export default class Responder {
 		let ext = path.substring(path.lastIndexOf('.') + 1);
 		let mime = Server.Mimes[ext] || 'text/plain';
 		return await new Promise(resFile => fs.readFile(path, async (_, content) => {
-			resFile(await this.raw(content, { utf8: true, status, zip, cors, type: mime }));
+			resFile(await this.raw(content, { encoding: 'utf8', status, zip, cors, type: mime }));
 		}));
 	}
 
 
-	async raw(buffer, { utf8 = false, status = 200, zip = false, cors = false, type = 'application/json', headers = {} }) {
+	async raw(buffer, { encoding = null, status = 200, zip = false, cors = false, type = 'application/json', headers = {} }) {
 		headers['Content-Type'] = type;
 		if (cors) {
 			headers['Access-Control-Allow-Origin'] = '*';
@@ -62,11 +72,11 @@ export default class Responder {
 			buffer = await new Promise(resZip => zlib.gzip(buffer, (_, result) => {
 				resZip(result);
 			}));
-			utf8 = false;
+			encoding = 'binary';
 		}
 
 		this.response.writeHead(status, headers);
-		this.response.end(buffer, utf8 ? 'utf-8' : null);
+		this.response.end(buffer, encoding);
 
 		return true;
 	}
