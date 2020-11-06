@@ -31,6 +31,7 @@ export default class Server{
 	static Mimes = {
 		html: 'text/html',
 		js :'application/javascript',
+		wasm: 'application/wasm',
 		css: 'text/css',
 		jpg: 'image/jpg',
 		png: 'image/png',

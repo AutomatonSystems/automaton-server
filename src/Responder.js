@@ -51,13 +51,14 @@ export default class Responder {
     /**
      *
      * @param {String} path
-     * @param {{status?: number, zip?: boolean, cors?: boolean}} param1
+     * @param {{status?: number, zip?: boolean, cors?: boolean, unzip?: boolean}} param1
      */
-	async file(path, { status = 200, zip = false, cors = false } = {}) {
+	async file(path, { status = 200, zip = false, cors = false, unzip = false} = {}) {
 		let ext = path.substring(path.lastIndexOf('.') + 1);
+		ext=ext.replace('/', '').toLocaleLowerCase();
 		let mime = Server.Mimes[ext] || 'text/plain';
 		return await new Promise(resFile => fs.readFile(path, async (_, content) => {
-			resFile(await this.raw(content, { encoding: 'utf8', status, zip, cors, type: mime }));
+			resFile(await this.raw(content, { encoding: 'utf8', status, zip, cors, type: mime , headers: unzip?{'content-encoding':'gzip'}:{}}));
 		}));
 	}
 
