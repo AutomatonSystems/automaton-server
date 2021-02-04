@@ -1,6 +1,7 @@
 import URL from 'url';
 import http from 'http';
 import AuthenticationAuthorizationSystem from '../auth/AuthenticationAuthorizationSystem.js';
+import Busboy from 'busboy';
 
 /**
  * Wraps incoming request with simple parsing logic
@@ -65,6 +66,37 @@ export default class RequestWrapper {
 				if (format.toLowerCase() == 'json')
 					return JSON.parse(text);
 				return text;
+			}
+			case 'form': {
+				return new Promise((res) => {
+					let obj = {};
+					let promises = [];
+					let busboy = new Busboy({headers: this.req.headers});
+					busboy.on('file', (fieldname, file, filename, encoding, mimetype)=>{
+						console.log("FILE", fieldname, file, filename, encoding, mimetype);
+						promises.push((async ()=>{
+							// read the bytes of the file
+							const data = []
+							for await (let bytes of file) {
+								data.push(bytes)
+							}
+							// add the file to our response object
+							obj[fieldname] = {
+								name: filename,
+								data: Buffer.concat(data),
+								encoding,
+								mimetype
+							}
+						})());
+					});
+					busboy.on('field', function(fieldname, val, fieldnameTruncated, valTruncated) {
+						obj[fieldname] = val;
+					});
+					busboy.on('finish', ()=>{
+						Promise.allSettled(promises).then(()=>res(obj));
+					});
+					this.req.pipe(busboy);
+				});
 			}
 			case 'blob': {
 				return new Promise((res) => {
