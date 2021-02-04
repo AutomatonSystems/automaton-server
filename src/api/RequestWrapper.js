@@ -73,7 +73,6 @@ export default class RequestWrapper {
 					let promises = [];
 					let busboy = new Busboy({headers: this.req.headers});
 					busboy.on('file', (fieldname, file, filename, encoding, mimetype)=>{
-						console.log("FILE", fieldname, file, filename, encoding, mimetype);
 						promises.push((async ()=>{
 							// read the bytes of the file
 							const data = []
