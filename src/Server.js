@@ -6,6 +6,7 @@ import AuthenticationAuthorizationSystem from './auth/AuthenticationAuthorizatio
 import MicrosoftAuth from "./auth/MicrosoftAuth.js";
 import API from './api/API.js';
 import Responder from './Responder.js';
+import v8 from "v8";
 
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));
 let VERSION = packagejson.version;
@@ -83,14 +84,31 @@ export default class Server{
 		return this.#auth.perform(username);
 	}
 
+	statusCache = null;
+
 	/**
 	 * Status endpoint response
 	 */
 	async status(){
-		return {
-			service: this.name,
-			version: VERSION
-		};
+		if(this.statusCache == null || Date.now() > this.statusCache.expires){
+
+			let heap = v8.getHeapStatistics();
+			const MB = (number)=>(number/(1024*1024)).toFixed(1)+"MB";
+
+			this.statusCache = {
+				value: {
+					service: this.name,
+					version: VERSION,
+					memory: {
+						max: MB(heap.heap_size_limit),
+						peak: MB(heap.peak_malloced_memory),
+						current: MB(heap.used_heap_size)
+					}
+				},
+				expires: Date.now() + 1000*60 // in one minute
+			}
+		}
+		return this.statusCache.value;
 	}
 
 	/**
