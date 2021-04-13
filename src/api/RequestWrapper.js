@@ -75,14 +75,14 @@ export default class RequestWrapper {
 					busboy.on('file', (fieldname, file, filename, encoding, mimetype)=>{
 						promises.push((async ()=>{
 							// read the bytes of the file
-							const data = []
+							const data = [];
 							for await (let bytes of file) {
-								data.push(bytes)
+								data.push(bytes);
 							}
 							// add the file to our response object
 							obj[fieldname] = {
 								name: filename,
-								data: Buffer.concat(data),
+								data: Buffer.concat(/** @type {*} */(data)),
 								encoding,
 								mimetype
 							}
@@ -111,9 +111,6 @@ export default class RequestWrapper {
 					});
 				});
 			}
-			/*case 'FORM': {
-				new FormData();
-			}*/
 		}
 	}
 }

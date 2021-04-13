@@ -8,6 +8,7 @@ import API from './api/API.js';
 import Responder from './Responder.js';
 import v8 from "v8";
 
+
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));
 let VERSION = packagejson.version;
 
@@ -39,6 +40,12 @@ export default class Server{
 		svg: 'image/svg+xml'
 	}
 
+	static HEADERS = {};
+	static FILE_CACHING = false;
+	static EXTENDED_STATUS_MODE = false;
+
+
+	/** @type {Object.<String,API>} */
 	#api = {};
 
 	#serve = {};
@@ -90,25 +97,32 @@ export default class Server{
 	 * Status endpoint response
 	 */
 	async status(){
-		if(this.statusCache == null || Date.now() > this.statusCache.expires){
+		if(Server.EXTENDED_STATUS_MODE){
+			if(this.statusCache == null || Date.now() > this.statusCache.expires){
 
-			let heap = v8.getHeapStatistics();
-			const MB = (number)=>(number/(1024*1024)).toFixed(1)+"MB";
+				let heap = v8.getHeapStatistics();
+				const MB = (number)=>(number/(1024*1024)).toFixed(1)+"MB";
 
-			this.statusCache = {
-				value: {
-					service: this.name,
-					version: VERSION,
-					memory: {
-						max: MB(heap.heap_size_limit),
-						peak: MB(heap.peak_malloced_memory),
-						current: MB(heap.used_heap_size)
-					}
-				},
-				expires: Date.now() + 1000*60 // in one minute
+				this.statusCache = {
+					value: {
+						service: this.name,
+						version: VERSION,
+						memory: {
+							max: MB(heap.heap_size_limit),
+							peak: MB(heap.peak_malloced_memory),
+							current: MB(heap.used_heap_size)
+						}
+					},
+					expires: Date.now() + 1000*60 // in one minute
+				}
 			}
+			return this.statusCache.value;
+		}else{
+			return {
+				service: this.name,
+				version: VERSION
+			};
 		}
-		return this.statusCache.value;
 	}
 
 	/**
@@ -211,10 +225,6 @@ export default class Server{
 					}else if(valid(asset + '/index.html')){
 						return reply.file(asset + '/index.html');
 					}
-					/*asset = asset.substring(1,parsedUrl.pathname.indexOf('/',1)) + '.html';
-					if(valid(asset)){
-						return reply.file(asset);
-					}*/
 				}
 			}
 	
@@ -227,6 +237,4 @@ export default class Server{
 			return reply.error("Error handling request", 500);
 		}
 	}
-
-	
 }
