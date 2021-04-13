@@ -7,6 +7,7 @@ import MicrosoftAuth from "./auth/MicrosoftAuth.js";
 import API from './api/API.js';
 import Responder from './Responder.js';
 import v8 from "v8";
+import os from 'os';
 
 
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));
@@ -103,10 +104,17 @@ export default class Server{
 				let heap = v8.getHeapStatistics();
 				const MB = (number)=>(number/(1024*1024)).toFixed(1)+"MB";
 
+				let cpuLoad = os.loadavg();
+
 				this.statusCache = {
 					value: {
 						service: this.name,
 						version: VERSION,
+						cpuload: {
+							"1min":cpuLoad[0],
+							"5min":cpuLoad[1],
+							"15min":cpuLoad[2]
+						},
 						memory: {
 							max: MB(heap.heap_size_limit),
 							peak: MB(heap.peak_malloced_memory),

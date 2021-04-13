@@ -2,6 +2,8 @@ import Server from './index.js';
 
 let server = new Server('test', Server.Auth.NO_AUTH);
 
+Server.EXTENDED_STATUS_MODE = true;
+
 server
 	.api('api')
 		.get('item/{id:number}', async (reply, {id})=>{
