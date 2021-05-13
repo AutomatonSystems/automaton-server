@@ -16,7 +16,7 @@ import http from 'http';
 /**
   * 
   */
-export default class API {
+export default class ServerApiEndpoint {
 	#root;
 
     /**@type {Handler[]} */
@@ -53,7 +53,7 @@ export default class API {
      * @param {String} path
      * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
      *
-     * @returns {API}
+     * @returns {ServerApiEndpoint}
      */
 	endpoint(method, path, ...args) {
 		let auth = this.#auth;
@@ -91,7 +91,7 @@ export default class API {
      * @param {String} path
      * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
      *
-     * @returns {API}
+     * @returns {ServerApiEndpoint}
      */
 	get(path, ...args) {
 		return this.endpoint("GET", path, ...args);
@@ -104,7 +104,7 @@ export default class API {
      * @param {String} path
      * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
      *
-     * @returns {API}
+     * @returns {ServerApiEndpoint}
      */
 	post(path, ...args) {
 		return this.endpoint("POST", path, ...args);
@@ -117,7 +117,7 @@ export default class API {
      * @param {String} path
      * @param {...handlerCallback|AuthenticationAuthorizationSystem|String|String[]} args
      *
-     * @returns {API}
+     * @returns {ServerApiEndpoint}
      */
 	delete(path, ...args) {
 		return this.endpoint("DELETE", path, ...args);

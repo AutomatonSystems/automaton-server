@@ -4,7 +4,7 @@ import fs from 'fs';
 
 import AuthenticationAuthorizationSystem from './auth/AuthenticationAuthorizationSystem.js';
 import MicrosoftAuth from "./auth/MicrosoftAuth.js";
-import API from './api/API.js';
+import ServerApiEndpoint from './api/ServerApiEndpoint.js';
 import Responder from './Responder.js';
 import v8 from "v8";
 import os from 'os';
@@ -46,7 +46,7 @@ export default class Server{
 	static EXTENDED_STATUS_MODE = false;
 
 
-	/** @type {Object.<String,API>} */
+	/** @type {Object.<String,ServerApiEndpoint>} */
 	#api = {};
 
 	#serve = {};
@@ -117,7 +117,6 @@ export default class Server{
 						},
 						memory: {
 							max: MB(heap.heap_size_limit),
-							peak: MB(heap.peak_malloced_memory),
 							current: MB(heap.used_heap_size)
 						}
 					},
@@ -167,7 +166,7 @@ export default class Server{
 	 * @param {String} root 
 	 * @param {AuthenticationAuthorizationSystem} auth 
 	 * 
-	 * @returns {API} API for extension
+	 * @returns {ServerApiEndpoint} API for extension
 	 */ 
 	api(root, auth = this.#auth){
 		if(!root.startsWith('/')){
@@ -177,9 +176,9 @@ export default class Server{
 			root+='/';
 		}
 		if(!this.#api[root]){
-			this.#api[root] = new API(root, auth);
+			this.#api[root] = new ServerApiEndpoint(root, auth);
 		}
-		return this.#api[root];
+		return /** @type {ServerApiEndpoint} */(this.#api[root]);
 	}
 
 	/**
