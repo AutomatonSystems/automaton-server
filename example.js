@@ -1,4 +1,4 @@
-import Server from './index.js';
+import Server from './dist/AutomatonServer.js';
 
 let server = new Server('test', Server.Auth.NO_AUTH);
 

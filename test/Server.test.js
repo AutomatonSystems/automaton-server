@@ -1,6 +1,6 @@
 import assert from 'assert';
 
-import Server from '../src/Server.js';
+import Server from '../dist/AutomatonServer.js';
 import fetch from 'node-fetch';
 
 const SERVER_NAME = 'test-server';

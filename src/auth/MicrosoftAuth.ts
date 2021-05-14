@@ -1,8 +1,9 @@
+import { IncomingMessage } from 'http';
 import fetch from 'node-fetch';
 import AuthenticationAuthorizationSystem from './AuthenticationAuthorizationSystem.js';
 
 export default class MicrosoftAuth extends AuthenticationAuthorizationSystem {
-	async authentication(req) {
+	override async authentication(req: IncomingMessage) {
 		let bearerToken = req.headers.authorization;
 		if (bearerToken == '' || bearerToken == null) {
 			return null;

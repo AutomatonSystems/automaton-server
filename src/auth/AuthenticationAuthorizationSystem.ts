@@ -1,3 +1,4 @@
+import {IncomingMessage} from 'http';
 
 let id = 0;
 
@@ -9,12 +10,12 @@ let id = 0;
 export default class AuthenticationAuthorizationSystem {
 
 	static NONE = new (class extends AuthenticationAuthorizationSystem{
-		async authentication(req){
+		override async authentication(req: IncomingMessage){
 			return {username: ""}
 		}
 	})();
 
-	#id;
+	#id: number;
 
 	constructor(){
 		this.#id = id++;
@@ -24,7 +25,14 @@ export default class AuthenticationAuthorizationSystem {
 		return this.#id;
 	}
 
-	async perform(req){
+	/**
+	 * 
+	 * 
+	 * 
+	 * @param req the http request object this service is being asked to auth & auth
+	 * @returns 
+	 */
+	async perform(req: IncomingMessage): Promise<{user: any, permissions: any}>{
 		let user = await this.authentication(req);
 		if(user == null)
 			return null;
@@ -41,10 +49,8 @@ export default class AuthenticationAuthorizationSystem {
      *
      * Returns the authenticated user
      *
-     * @param {*} req
-     * @returns {Promise<{username: String}| null>}
      */
-	async authentication(req) {
+	async authentication(req: IncomingMessage): Promise<{username: string}|null>{
 		return null;
 	}
 
@@ -52,10 +58,8 @@ export default class AuthenticationAuthorizationSystem {
      *
      * Returns the permissions for a user
      *
-     * @param {String} username
-	 * @returns {Promise<{}>}
      */
-	async authorization(username) {
+	async authorization(username: string): Promise<any>{
 		return {};
 	}
 }
