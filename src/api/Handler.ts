@@ -3,74 +3,75 @@ import Responder from '../Responder.js';
 import RequestWrapper from './RequestWrapper.js';
 import AuthenticationAuthorizationSystem from '../auth/AuthenticationAuthorizationSystem.js';
 
+type VariableFactory = {
+	name: string;
+	set: (obj: any, value: string) => void;
+};
+
 /**
  * 
  * Turns a string like 'count:number'
  * into a function that parses and adds the property 'count' (of type number)
  * to a supplied object
  * 
- * @param {String} input 
+ * @param input 
  * 
- * @returns {{name: String, set: Function}}}
+ * @returns
  */
-function parseVariableFactory(input) {
+function parseVariableFactory(input: string) : VariableFactory{
 	let [name, type] = input.split(':');
 	return {
 		name: name,
-		set: (obj, value) => {
+		set: (obj: any, value: string) => {
 			if (!value)
 				return;
+			let parsed = null;
 			switch (type?.toLowerCase()) {
 				case 'number':
-					value = parseFloat(value);
+					parsed = parseFloat(value);
 					break;
 				case 'boolean':
-					value = (value.toLowerCase() == 'true');
+					parsed = (value.toLowerCase() == 'true');
 					break;
 				case 'json':
-					value = JSON.parse(value);
+					parsed = JSON.parse(value);
+					break;
+				default:
+					parsed = value;
 					break;
 			}
-			obj[name] = value;
+			obj[name] = parsed;
 		}
 	};
 }
 
-/**
- * 
- * @callback handlerCallback
- * @param {Responder} res 
- * @param {*} args
- */
+export type HandlerCallback = (res: Responder, args: any) => Promise<any>;
 
 export default class Handler {
 
-	/** @type {RegExp}*/
-	path;
+	path: RegExp;
 
-	pathVariables = [];
-	queryVariables = [];
+	pathVariables: VariableFactory[] = [];
+	queryVariables: VariableFactory[] = [];
 
-	body = null;
+	body: any;
 
-	/** @type {String} */
-	method;
+	method: string;
 
-	/** @type {handlerCallback} */
-	func;
+	func: HandlerCallback;
 
-	#auth;
+	#auth: AuthenticationAuthorizationSystem;
 
 	/**
 	 * 
-	 * @param {String} path 
-	 * @param {String} method 
-	 * @param {String} body 
-	 * @param {AuthenticationAuthorizationSystem} auth 
-	 * @param {String[]} params 
-	 * @param {handlerCallback} func 
+	 * @param path 
+	 * @param method 
+	 * @param body 
+	 * @param auth 
+	 * @param params 
+	 * @param func 
 	 */
-	constructor(path, method, body, auth, params, func) {
+	constructor(path: string, method: string, body: any, auth: AuthenticationAuthorizationSystem, params: string[], func: HandlerCallback) {
 		// extract path args
 		while (path.includes('{')) {
 			let variable = path.substring(path.indexOf('{'), path.indexOf('}') + 1);
@@ -93,14 +94,14 @@ export default class Handler {
 	}
 
     /**
-     * @param {String} method
-     * @param {String} path
-     * @param {RequestWrapper} request
-     * @param {Responder} reply
+     * @param method
+     * @param path
+     * @param request
+     * @param reply
      *
-     * @returns {Promise<Boolean>}
+     * @returns
      */
-	async handle(method, path, request, reply) {
+	async handle(method: string, path: string, request: RequestWrapper, reply: Responder): Promise<Boolean> {
 		if (this.method != method)
 			return false;
 
@@ -114,14 +115,19 @@ export default class Handler {
 			return await reply.error("Permission denied", 403);
 
 		// compute vars
-		let args = {};
+		let args = {} as any;
 		parts.shift();
 		for (let v of this.pathVariables)
 			v.set(args, decodeURI(parts.shift()));
 
 		// compute query params
-		for (let v of this.queryVariables)
-			v.set(args, request.param(v.name));
+		for (let v of this.queryVariables){
+			let pvalue = request.param(v.name);
+			if(typeof pvalue == "string")
+				v.set(args, pvalue);
+			else
+				v.set(args, pvalue[0]);
+		}
 
 		// add permissions
 		args['user'] = user.user;

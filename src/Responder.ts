@@ -1,30 +1,24 @@
 import fs from 'fs';
 import zlib from 'zlib';
-import Server from './Server.js';
+import Server from './AutomatonServer.js';
 import http from 'http';
 
+
+type Json =  null | string | number | boolean | Json [] |  { [key: string]: Json };
 
 /**
  * Wrapper class to make returning various common patterns a simple async call
  */
 export default class Responder {
 
-	/**
-	 * @type {http.IncomingMessage}
-	 */
-	request;
+	request: http.IncomingMessage;
 
 	response;
 
-	#fileCache = {};
+	#fileCache: Record<string, {lastModified:Date, content: Buffer}> = {};
+	path: string;
 
-	/**
-	 * 
-	 * @param {http.IncomingMessage} request 
-	 * @param {*} response 
-	 * @param {*} path 
-	 */
-	constructor(request, response, path) {
+	constructor(request: http.IncomingMessage, response: http.ServerResponse, path: string) {
 		this.request = request;
 		this.response = response;
 		this.path = path;
@@ -35,10 +29,11 @@ export default class Responder {
 	 * 
 	 * Return an error message
 	 * 
-	 * @param {*} info 
-	 * @param {*} code 
+	 * @param info 
+	 * @param code 
 	 */
-	async error(info, code = 500) {
+	async error(info: any, code = 500) {
+
 		return await this.json({ "error": info, "path": this.path }, { status: code });
 	}
 
@@ -46,10 +41,10 @@ export default class Responder {
 	 * 
 	 * Return a json response
 	 * 
-	 * @param {*} html 
-	 * @param {{status?: number, zip?: boolean, cors?: boolean}} param1 
+	 * @param html 
+	 * @param opts 
 	 */
-	async html(html, { status = 200, zip = false, cors = false } = {}) {
+	async html(html: string, { status = 200, zip = false, cors = false } = {}) {
 		return await this.raw(html, { encoding: 'utf8', status, zip, cors });
 	}
 
@@ -57,26 +52,27 @@ export default class Responder {
 	 * 
 	 * Return a json response
 	 * 
-	 * @param {*} json 
-	 * @param {{status?: number, zip?: boolean, cors?: boolean}} param1 
+	 * @param json 
+	 * @param opts 
 	 */
-	async json(json, { status = 200, zip = false, cors = false } = {}) {
+	async json(json: Json, { status = 200, zip = false, cors = false } = {}) {
 		return await this.raw(JSON.stringify(json, null, '\t'), { encoding: 'utf8', status, zip, cors });
 	}
 
     /**
-     *
-     * @param {String} path
-     * @param {{status?: number, zip?: boolean, cors?: boolean, unzip?: boolean}} param1
+     * Return a file as a response, optionally zipping it first
+	 * 
+     * @param path
+     * @param opts
      */
-	async file(path, { status = 200, zip = false, cors = false, unzip = false} = {}) {
+	async file(path: string, { status = 200, zip = false, cors = false, unzip = false} = {}) {
 		let ext = path.substring(path.lastIndexOf('.') + 1);
 		ext=ext.replace('/', '').toLocaleLowerCase();
 		let mime = Server.Mimes[ext] || 'text/plain';
 
-		let lastModified = null;
+		let lastModified: Date= null;
 
-		let params = { encoding: 'utf8', status, zip, cors, type: mime, headers: unzip?{'content-encoding':'gzip'}:{}};
+		let params: any = { encoding: 'utf8', status, zip, cors, type: mime, headers: unzip?{'content-encoding':'gzip'}:{}};
 
 		if(Server.FILE_CACHING){
 			let lastModified = fs.statSync(path).mtime;
@@ -118,11 +114,11 @@ export default class Responder {
 
 	/**
 	 * 
-	 * @param {*} buffer 
-	 * @param {{lastModified?: Date, encoding?: String, status?: number, zip?: Boolean, cors?: boolean, type?: String, headers?: *}} param1 
+	 * @param buffer 
+	 * @param param1 
 	 */
-	async raw(buffer, { encoding = null, status = 200, zip = false, cors = false, type = 'application/json', lastModified = null, headers = {} }) {
-		let respHeaders = Object.assign({}, Server.HEADERS);
+	async raw(buffer: Buffer | string, { encoding = null as BufferEncoding, status = 200, zip = false, cors = false, type = 'application/json', lastModified = null, headers = {} }) {
+		let respHeaders = Object.assign({}, Server.HEADERS) as http.OutgoingHttpHeaders;
 
 		respHeaders['Content-Type'] = type;
 		if (cors) {
@@ -137,9 +133,7 @@ export default class Responder {
 
 		if (zip) {
 			respHeaders['content-encoding'] = 'gzip';
-			buffer = await new Promise(resZip => zlib.gzip(buffer, (_, result) => {
-				resZip(result);
-			}));
+			buffer = await new Promise(resZip => zlib.gzip(buffer, (_, result) => resZip(result)));
 			encoding = 'binary';
 		}
 

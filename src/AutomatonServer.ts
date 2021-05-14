@@ -13,17 +13,11 @@ import os from 'os';
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));
 let VERSION = packagejson.version;
 
-/**
- * 
- * @callback handlerCallback
- * @param {Responder} res 
- * @param {*} args
- */
 
 /**
  * 
  */
-export default class Server{
+export default class AutomatonServer{
 
 	static Auth = {
 		System: AuthenticationAuthorizationSystem,
@@ -31,7 +25,7 @@ export default class Server{
 		// Static auth types
 		NO_AUTH: AuthenticationAuthorizationSystem.NONE
 	};
-	static Mimes = {
+	static Mimes: Record<string, string>= {
 		html: 'text/html',
 		js :'application/javascript',
 		wasm: 'application/wasm',
@@ -46,23 +40,26 @@ export default class Server{
 	static EXTENDED_STATUS_MODE = false;
 
 
-	/** @type {Object.<String,ServerApiEndpoint>} */
-	#api = {};
+	#api: Record<string, ServerApiEndpoint> = {};
 
-	#serve = {};
+	#serve: Record<string, string> = {};
 
-	/** @type {AuthenticationAuthorizationSystem} */
-	#auth;
+	#auth: AuthenticationAuthorizationSystem;
 
 	verbose = true;
+	name: string;
+	http: http.Server;
+
+	
+	statusCache: any = null;
 
 	/**
 	 * 
-	 * @param {String} name 
-	 * @param {AuthenticationAuthorizationSystem} [auth]
+	 * @param name 
+	 * @param auth
 	 * 
 	 */
-	constructor(name, auth = Server.Auth.NO_AUTH){
+	constructor(name: string, auth = AutomatonServer.Auth.NO_AUTH){
 		this.name = name;
 
 		this.#auth = auth;
@@ -71,7 +68,7 @@ export default class Server{
 
 	}
 
-	start(port){
+	start(port: number){
 		// actually start the server
 		this.http.listen(port, () => {
 			if(this.verbose){
@@ -85,24 +82,22 @@ export default class Server{
 	}
 
 	/**
-	 * 
-	 * @param {String} username 
+	 * @deprecated
+	 * @param {*} username 
 	 */
-	async authorize(username){
+	async authorize(username: any){
 		return this.#auth.perform(username);
 	}
-
-	statusCache = null;
 
 	/**
 	 * Status endpoint response
 	 */
 	async status(){
-		if(Server.EXTENDED_STATUS_MODE){
+		if(AutomatonServer.EXTENDED_STATUS_MODE){
 			if(this.statusCache == null || Date.now() > this.statusCache.expires){
 
 				let heap = v8.getHeapStatistics();
-				const MB = (number)=>(number/(1024*1024)).toFixed(1)+"MB";
+				const MB = (number:number)=>(number/(1024*1024)).toFixed(1)+"MB";
 
 				let cpuLoad = os.loadavg();
 
@@ -136,23 +131,23 @@ export default class Server{
 	 * 
 	 * Serve files in {folder} at {path}
 	 * 
-	 * @param {String} path 
-	 * @param {String} folder 
+	 * @param path 
+	 * @param folder 
 	 * 
-	 * @returns {Server}
+	 * @returns
 	 */
-	serve(path, folder){
+	serve(path: string, folder: string){
 		this.#serve[folder] = path;
 		return this;
 	}
 
 	/**
-	 * Create a symlink, useful for serving dist folders from node_modules
+	 * Create a symlink, useful for serving individual dist folders from node_modules
 	 * 
-	 * @param {*} folder 
-	 * @param {*} path 
+	 * @param folder 
+	 * @param path 
 	 */
-	link(folder, path){
+	link(folder: string, path: string){
 		try{
 			fs.symlinkSync(folder, path);
 		}catch(e){
@@ -161,14 +156,7 @@ export default class Server{
 		return this;
 	}
 
-	/**
-	 * 
-	 * @param {String} root 
-	 * @param {AuthenticationAuthorizationSystem} auth 
-	 * 
-	 * @returns {ServerApiEndpoint} API for extension
-	 */ 
-	api(root, auth = this.#auth){
+	api(root: string, auth:AuthenticationAuthorizationSystem = this.#auth): ServerApiEndpoint{
 		if(!root.startsWith('/')){
 			root='/'+root;
 		}
@@ -176,17 +164,17 @@ export default class Server{
 			root+='/';
 		}
 		if(!this.#api[root]){
-			this.#api[root] = new ServerApiEndpoint(root, auth);
+			this.#api[root] = new ServerApiEndpoint(this, root, auth);
 		}
-		return /** @type {ServerApiEndpoint} */(this.#api[root]);
+		return this.#api[root];
 	}
 
 	/**
 	 * 
-	 * @param {http.IncomingMessage} req 
-	 * @param {*} res 
+	 * @param req 
+	 * @param res 
 	 */
-	async handle(req, res){
+	async handle(req: http.IncomingMessage, res: http.ServerResponse){
 		let reply = new Responder(req, res, null);
 		try{
 			// pre-process incoming request
@@ -215,7 +203,7 @@ export default class Server{
 			// File endpoints
 
 			// util to check path validity
-			let valid = (path)=>{try{return fs.lstatSync(path).isFile()}catch(_){return false}}
+			let valid = (path:string)=>{try{return fs.lstatSync(path).isFile()}catch(_){return false}}
 	
 			for(let prefix of Object.keys(this.#serve)){
 
