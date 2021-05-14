@@ -47,7 +47,7 @@ export default class RequestWrapper {
 	 * 
 	 * Extract the body of the request in the supplied format
 	 * 
-	 * @param {"JSON"|"STRING"|"BLOB"} format 
+	 * @param {"JSON"|"STRING"|"BLOB"|"FORM"} format 
 	 */
 	async readBody(format) {
 		switch (format.toLowerCase()) {

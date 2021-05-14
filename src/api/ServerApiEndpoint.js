@@ -5,7 +5,6 @@ import Responder from "../Responder.js";
 import RequestWrapper from './RequestWrapper.js';
 import http from 'http';
 
-
 /**
  * 
  * @callback handlerCallback
@@ -29,7 +28,6 @@ export default class ServerApiEndpoint {
 		this.#root = root;
 		this.#auth = auth;
 	}
-
 
 	/**
 	 * 

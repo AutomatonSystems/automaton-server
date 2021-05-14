@@ -36,7 +36,6 @@ function parseVariableFactory(input) {
 	};
 }
 
-
 /**
  * 
  * @callback handlerCallback
