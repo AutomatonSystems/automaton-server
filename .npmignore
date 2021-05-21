@@ -1,3 +1,5 @@
 src/
 test/
 coverage/
+tsconfig.json
+example.js

@@ -1,6 +1,7 @@
 import URL from 'url';
 import http from 'http';
 import fs from 'fs';
+import cluster from 'cluster';
 
 import AuthenticationAuthorizationSystem from './auth/AuthenticationAuthorizationSystem.js';
 import MicrosoftAuth from "./auth/MicrosoftAuth.js";
@@ -18,6 +19,18 @@ let VERSION = packagejson.version;
  * 
  */
 export default class AutomatonServer{
+
+	static Cluster(size: number, path: string): AutomatonServer{
+		if(cluster.isMaster){
+			for(let s = 0; s < size; s++)
+				cluster.fork();
+			return null;
+		}else{
+			// otherwise...
+			console.log("starting cluster worker " + process.pid);
+			import(path);
+		}
+	}
 
 	static Auth = {
 		System: AuthenticationAuthorizationSystem,
@@ -39,12 +52,14 @@ export default class AutomatonServer{
 	static FILE_CACHING = false;
 	static EXTENDED_STATUS_MODE = false;
 
+	static SERVE_NODE_MODULES = false;
+
 
 	#api: Record<string, ServerApiEndpoint> = {};
 
 	#serve: Record<string, string> = {};
 
-	#auth: AuthenticationAuthorizationSystem;
+	#auth: AuthenticationAuthorizationSystem = AutomatonServer.Auth.NO_AUTH;
 
 	verbose = true;
 	name: string;
@@ -59,13 +74,23 @@ export default class AutomatonServer{
 	 * @param auth
 	 * 
 	 */
-	constructor(name: string, auth = AutomatonServer.Auth.NO_AUTH){
-		this.name = name;
+	constructor(){
+		this.name = packagejson.name;
 
-		this.#auth = auth;
+		this.setDefaultAuth
 
 		this.http = http.createServer(this.handle.bind(this));
 
+	}
+
+	setName(name: string): AutomatonServer{
+		this.name = name;
+		return this;
+	}
+
+	setDefaultAuth(auth: AuthenticationAuthorizationSystem){
+		this.#auth = auth;
+		return this;
 	}
 
 	start(port: number){

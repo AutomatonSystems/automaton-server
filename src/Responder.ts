@@ -2,8 +2,7 @@ import fs from 'fs';
 import zlib from 'zlib';
 import Server from './AutomatonServer.js';
 import http from 'http';
-
-
+import Path from 'path';
 type Json =  null | string | number | boolean | Json [] |  { [key: string]: Json };
 
 /**
@@ -100,6 +99,28 @@ export default class Responder {
 			resolvePromise => {
 				// send back the file
 				fs.readFile(path, async (_, content) => {
+					// node_modules
+					if(Server.SERVE_NODE_MODULES){
+						if(path.endsWith(".js")){
+							let text = content.toString('utf8');
+							let matches = [...text.matchAll(/import ((.*) from )?["']([^.\/].*)['"];?/g)];
+							let active = false;
+							for(let pattern of matches){
+								let lib = pattern[3];
+								if(lib.startsWith('#'))
+									lib = lib.substring(1);
+								let ptext = fs.readFileSync(`./node_modules/${lib}/package.json`, 'utf8');
+								let json = JSON.parse(ptext);
+								let truepath = Path.join('/libs/', lib, json.main);
+								truepath = truepath.replace(/\\/g, '/');
+								text = text.replace(pattern[0], `import ${pattern[1]?pattern[1]:''}"${truepath}";`);
+								active = true;
+							}
+							if(active){
+								content = Buffer.from(text,'utf8');
+							}
+						}
+					}
 					// cache the file
 					if(lastModified)
 						this.#fileCache[path] = {lastModified, content};

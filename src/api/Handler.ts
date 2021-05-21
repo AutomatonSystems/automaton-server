@@ -126,7 +126,7 @@ export default class Handler {
 			if(typeof pvalue == "string")
 				v.set(args, pvalue);
 			else
-				v.set(args, pvalue[0]);
+				v.set(args, pvalue?.[0]);
 		}
 
 		// add permissions

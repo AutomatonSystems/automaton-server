@@ -3,8 +3,8 @@ import assert from 'assert';
 import Server from '../dist/AutomatonServer.js';
 import fetch from 'node-fetch';
 
-const SERVER_NAME = 'test-server';
-const SERVER = new Server(SERVER_NAME);
+const SERVER_NAME = 'automaton-server';
+const SERVER = new Server();
 
 const SERVER_PORT = 8003;
 

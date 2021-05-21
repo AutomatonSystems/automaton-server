@@ -9,7 +9,9 @@
 		"test": "c8 mocha './test/**/*.js'",
 		"start": "node example",
 		"debug": "node --inspect example",
-		"build": "tsc"
+		"build": "tsc",
+
+		"dev": "tsc --watch"
 	},
 	"author": "",
 	"license": "ISC",
