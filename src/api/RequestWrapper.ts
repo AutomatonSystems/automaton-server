@@ -82,36 +82,41 @@ export default class RequestWrapper {
 				return new Promise((res) => {
 					let obj = {} as JsonObject;
 					let promises: Promise<void>[] = [];
-					let busboy = new Busboy({headers: this.req.headers});
-					busboy
-						.on('file', (fieldname, file, filename, encoding, mimetype)=>{
-							promises.push((async ()=>{
-								// read the bytes of the file
-								let data = [];
-								let text = "";
-								for await (let bytes of file) {
-									if(typeof bytes == "string"){
-										text += bytes;
-									}else{
-										data.push(bytes);
+					try{
+						let busboy = new Busboy({headers: this.req.headers});
+						busboy
+							.on('file', (fieldname, file, filename, encoding, mimetype)=>{
+								promises.push((async ()=>{
+									// read the bytes of the file
+									let data = [];
+									let text = "";
+									for await (let bytes of file) {
+										if(typeof bytes == "string"){
+											text += bytes;
+										}else{
+											data.push(bytes);
+										}
 									}
-								}
-								// add the file to our response object
-								obj[fieldname] = {
-									name: filename,
-									data: data.length?Buffer.concat(data):text,
-									encoding,
-									mimetype
-								}
-							})());
-						})
-						.on('field', (fieldname, val)=>{
-							obj[fieldname] = val;
-						})
-						.on('finish', ()=>{
-							Promise.allSettled(promises).then(()=>res(obj as BodyType<T>));
-						});
-					this.req.pipe(busboy);
+									// add the file to our response object
+									obj[fieldname] = {
+										name: filename,
+										data: data.length?Buffer.concat(data):text,
+										encoding,
+										mimetype
+									}
+								})());
+							})
+							.on('field', (fieldname, val)=>{
+								obj[fieldname] = val;
+							})
+							.on('finish', ()=>{
+								Promise.allSettled(promises).then(()=>res(obj as BodyType<T>));
+							});
+						this.req.pipe(busboy);
+					}catch(e){
+						console.warn("Failed to parse FORM body\n", e);
+						res(null);
+					}
 				});
 			}
 			case 'BLOB': {
