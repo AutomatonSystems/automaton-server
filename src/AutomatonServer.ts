@@ -9,6 +9,7 @@ import ServerApiEndpoint from './api/ServerApiEndpoint.js';
 import Responder from './Responder.js';
 import v8 from "v8";
 import os from 'os';
+import Path from 'path';
 
 
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));
@@ -52,12 +53,12 @@ export default class AutomatonServer{
 	static FILE_CACHING = false;
 	static EXTENDED_STATUS_MODE = false;
 
-	static SERVE_NODE_MODULES = false;
+	static SERVE_NODE_MODULES: false|string = false;
 
 
 	#api: Record<string, ServerApiEndpoint> = {};
 
-	#serve: Record<string, string> = {};
+	#serve: {folder:string, path:string}[] = [];
 
 	#auth: AuthenticationAuthorizationSystem = AutomatonServer.Auth.NO_AUTH;
 
@@ -65,8 +66,9 @@ export default class AutomatonServer{
 	name: string;
 	http: http.Server;
 
-	
 	statusCache: any = null;
+
+	#nodeModulesCache: Record<string, string> = {};
 
 	/**
 	 * 
@@ -79,7 +81,7 @@ export default class AutomatonServer{
 
 		this.setDefaultAuth
 
-		this.http = http.createServer(this.handle.bind(this));
+		this.http = http.createServer(this.#handle.bind(this));
 
 	}
 
@@ -100,6 +102,7 @@ export default class AutomatonServer{
 				console.log(`'${this.name}' server running at port ${port}`);
 			}
 		});
+		return this;
 	}
 
 	async stop(){
@@ -162,8 +165,32 @@ export default class AutomatonServer{
 	 * @returns
 	 */
 	serve(path: string, folder: string){
-		this.#serve[folder] = path;
+		this.#serve.push({path,folder});
 		return this;
+	}
+
+	serveNodeModules(path = 'libs'){
+		AutomatonServer.SERVE_NODE_MODULES = '/' + path;
+		this.serve('/' + path, './node_modules/');
+		return this;
+	}
+
+	async getNodeModulesPath(lib: string): Promise<string>{
+		if(!this.#nodeModulesCache[lib]){
+			this.#nodeModulesCache[lib] = await new Promise(resolve=>{
+				fs.readFile(`./node_modules/${lib}/package.json`, {encoding: 'utf8'}, (err, packageText)=>{
+					if(err){
+						// most likely it isn't a node_module afterall!
+						return resolve(null);
+					}
+					let json = JSON.parse(packageText);
+					let truepath = Path.join(AutomatonServer.SERVE_NODE_MODULES+'', '/', lib, json.main);
+					truepath = truepath.replace(/\\/g, '/');
+					resolve(truepath);
+				});
+			});
+		}
+		return this.#nodeModulesCache[lib];
 	}
 
 	/**
@@ -171,6 +198,8 @@ export default class AutomatonServer{
 	 * 
 	 * @param folder 
 	 * @param path 
+	 * 
+	 * @deprecated
 	 */
 	link(folder: string, path: string){
 		try{
@@ -199,8 +228,8 @@ export default class AutomatonServer{
 	 * @param req 
 	 * @param res 
 	 */
-	async handle(req: http.IncomingMessage, res: http.ServerResponse){
-		let reply = new Responder(req, res, null);
+	async #handle(req: http.IncomingMessage, res: http.ServerResponse){
+		let reply = new Responder(this, req, res);
 		try{
 			// pre-process incoming request
 			let parsedUrl = URL.parse(req.url.trim(), true);
@@ -229,15 +258,15 @@ export default class AutomatonServer{
 
 			// util to check path validity
 			let valid = (path:string)=>{try{return fs.lstatSync(path).isFile()}catch(_){return false}}
-	
-			for(let prefix of Object.keys(this.#serve)){
 
+			for(let {path, folder} of this.#serve){
+				
 				let requested = parsedUrl.pathname;
 
-				if(requested.startsWith(this.#serve[prefix])){
-					requested = requested.substring(this.#serve[prefix].length);
+				if(requested.startsWith(path)){
+					requested = requested.substring(path.length);
 					// check if I need to serve a file
-					let asset = prefix+'/'+requested;
+					let asset = folder+'/'+requested;
 					if(valid(asset)){
 						return reply.file(asset);
 					}else if(valid(asset + '.html')){

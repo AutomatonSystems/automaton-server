@@ -24,8 +24,18 @@ export default class ServerApiEndpoint {
 		this.#auth = auth;
 	}
 
-	ready(){
-		return this.#server;
+	setDefaultAuth(auth: AuthenticationAuthorizationSystem){
+		this.#auth = auth;
+		return this;
+	}
+
+	// wraps the server function for easier chaining
+	api(name: string){
+		return this.#server.api(name);
+	}
+
+	start(port: number){
+		return this.#server.start(port);
 	}
 
 	async handle(method: string, path: string, request: http.IncomingMessage, responder: Responder) {
