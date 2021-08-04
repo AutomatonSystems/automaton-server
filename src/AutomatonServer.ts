@@ -132,6 +132,7 @@ export default class AutomatonServer{
 				this.statusCache = {
 					value: {
 						service: this.name,
+						host: process.env.HOSTNAME ?? os.hostname(),
 						version: VERSION,
 						cpuload: {
 							"1min":cpuLoad[0],
@@ -150,6 +151,7 @@ export default class AutomatonServer{
 		}else{
 			return {
 				service: this.name,
+				host: process.env.HOSTNAME ?? os.hostname(),
 				version: VERSION
 			};
 		}
