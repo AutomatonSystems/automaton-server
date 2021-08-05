@@ -15,14 +15,10 @@ export default class AuthenticationAuthorizationSystem {
 		}
 	})();
 
-	#id: number;
+	id: number;
 
 	constructor(){
-		this.#id = id++;
-	}
-
-	get id(){
-		return this.#id;
+		this.id = id++;
 	}
 
 	/**
