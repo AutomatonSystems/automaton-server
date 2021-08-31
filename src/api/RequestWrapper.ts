@@ -3,7 +3,7 @@ import {IncomingMessage} from 'http';
 import AuthenticationAuthorizationSystem from '../auth/AuthenticationAuthorizationSystem.js';
 import Busboy from 'busboy';
 
-export type JsonObject = { [index: string]: null | string | number | boolean | JsonObject [] | JsonObject | Buffer}
+export type JsonObject = { [index: string]: null | string | number | boolean | JsonObject [] | JsonObject | Buffer | Date}
 
 type BodyFormat = "JSON"|"STRING"|"BLOB"|"FORM";
 type BodyType<T> = 

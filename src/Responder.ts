@@ -4,7 +4,7 @@ import Server from './AutomatonServer.js';
 import http from 'http';
 
 import AutomatonServer from './AutomatonServer.js';
-type Json =  null | string | number | boolean | Json [] |  { [key: string]: Json };
+type Json =  null | string | number | boolean | Json [] |  Date | { [key: string]: Json };
 
 /**
  * Wrapper class to make returning various common patterns a simple async call
