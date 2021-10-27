@@ -2,6 +2,8 @@
 import Responder from '../Responder.js';
 import RequestWrapper from './RequestWrapper.js';
 import AuthenticationAuthorizationSystem from '../auth/AuthenticationAuthorizationSystem.js';
+import { Server } from 'http';
+import AutomatonServer from '../AutomatonServer.js';
 
 type VariableFactory = {
 	name: string;
@@ -139,7 +141,20 @@ export default class Handler {
 		}
 
 		// and call the function
-		return await this.func(reply, args);
+		try{
+			return await this.func(reply, args);
+		}catch(e){
+			// the function failed. Error 500.
+			console.warn(`Failed to handle ${method}:${path}`, e);
+			let msg : any = {
+				"status": "Internal Server Error"
+			};
+			if(AutomatonServer.EXTENDED_STATUS_MODE){
+				msg.error = e.message;
+				msg.trace = e.stack;
+			}
+			await reply.error(msg, 500);
+		}
 	}
 }
 
