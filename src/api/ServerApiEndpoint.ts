@@ -2,29 +2,29 @@ import Handler, { HandlerCallback } from "./Handler.js";
 import AuthenticationAuthorizationSystem from '../auth/AuthenticationAuthorizationSystem.js';
 import Responder from "../Responder.js";
 
-import RequestWrapper from './RequestWrapper.js';
+import RequestWrapper, { Body, BodyType } from './RequestWrapper.js';
 import http from 'http';
 import AutomatonServer from "../AutomatonServer.js";
 
-type EndpointOption = (AuthenticationAuthorizationSystem|string|string[]|HandlerCallback);
-type BodylessEndpointOption = (AuthenticationAuthorizationSystem|string[]|HandlerCallback);
+type EndpointOption<User, Permissions, X> = (AuthenticationAuthorizationSystem<User, Permissions>|string[]|HandlerCallback<User, Permissions, X>);
+type BodylessEndpointOption<User, Permissions> = (AuthenticationAuthorizationSystem<User, Permissions>|string[]|HandlerCallback<User, Permissions, unknown>);
 
 /**
   * 
   */
-export default class ServerApiEndpoint {
+export default class ServerApiEndpoint<User, Permissions> {
 	#root: string;
-	#handlers: Handler[] = [];
-	#auth: AuthenticationAuthorizationSystem;
+	#handlers: Handler<unknown,unknown,unknown>[] = [];
+	#auth: AuthenticationAuthorizationSystem<User, Permissions>;
 	#server: AutomatonServer;
 
-	constructor(server: AutomatonServer, root: string, auth: AuthenticationAuthorizationSystem) {
+	constructor(server: AutomatonServer, root: string, auth: AuthenticationAuthorizationSystem<User, Permissions>) {
 		this.#server = server;
 		this.#root = root;
 		this.#auth = auth;
 	}
 
-	setDefaultAuth(auth: AuthenticationAuthorizationSystem){
+	setDefaultAuth(auth: AuthenticationAuthorizationSystem<User, Permissions>){
 		this.#auth = auth;
 		return this;
 	}
@@ -55,16 +55,13 @@ export default class ServerApiEndpoint {
      *
      * @returns
      */
-	endpoint(method: string, path: string, ...args: EndpointOption[]): ServerApiEndpoint {
+	endpoint<B extends Body>(method: string, path: string, body: B, ...args: EndpointOption<User, Permissions, BodyType<B>>[]): ServerApiEndpoint<User, Permissions> {
 		let auth = this.#auth;
-		let callback: HandlerCallback;
-		let body = null;
+		let callback: HandlerCallback<User, Permissions, BodyType<B>>;
 		let params : string[] = [];
 		for (let arg of args) {
 			if (typeof arg == 'function') {
 				callback = arg;
-			}else if (typeof arg == "string") {
-				body = arg;
 			}else if (Array.isArray(arg)) {
 				params = arg;
 			}else if (typeof arg == 'object') {
@@ -80,31 +77,32 @@ export default class ServerApiEndpoint {
 		}
 		path = this.#root + path;
 		// actually register the handler
-		this.#handlers.push(new Handler(path, method, body, auth, params, callback));
+		this.#handlers.push(new Handler<User, Permissions, BodyType<B>>(this.#server, path, method, body, auth, params, callback));
 		return this;
 	}
 
-	get(path: string, ...args: BodylessEndpointOption[]) {
-		return this.endpoint("GET", path, ...args);
+	get(path: string, ...args: BodylessEndpointOption<User, Permissions>[]) {
+		return this.endpoint("GET", path, Body.NONE, ...args);
 	}
 
-	post(path: string, ...args: EndpointOption[]) {
-		return this.endpoint("POST", path, ...args);
+	head(path: string, ...args: BodylessEndpointOption<User, Permissions>[]) {
+		return this.endpoint("HEAD", path, Body.NONE, ...args);
 	}
 
-	delete(path: string, ...args: EndpointOption[]) {
-		return this.endpoint("DELETE", path, ...args);
+
+	post<B extends Body>(path: string, body: B, ...args: EndpointOption<User, Permissions, BodyType<B>>[]) {
+		return this.endpoint("POST", path, body, ...args);
 	}
 
-	head(path: string, ...args: BodylessEndpointOption[]) {
-		return this.endpoint("HEAD", path, ...args);
+	delete<B extends Body>(path: string, body: B, ...args: EndpointOption<User, Permissions, BodyType<B>>[]) {
+		return this.endpoint("DELETE", path,  body, ...args);
 	}
 
-	put(path: string, ...args: EndpointOption[]) {
-		return this.endpoint("PUT", path, ...args);
+	put<B extends Body>(path: string, body: B, ...args: EndpointOption<User, Permissions, BodyType<B>>[]) {
+		return this.endpoint("PUT", path,  body, ...args);
 	}
 
-	patch(path: string, ...args: EndpointOption[]) {
-		return this.endpoint("PATCH", path, ...args);
+	patch<B extends Body>(path: string, body: B, ...args: EndpointOption<User, Permissions, BodyType<B>>[]) {
+		return this.endpoint("PATCH", path,  body, ...args);
 	}
 }

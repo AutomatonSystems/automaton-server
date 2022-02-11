@@ -13,8 +13,27 @@ import Path from 'path';
 
 
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));
-let VERSION = packagejson.version;
 
+
+export enum StatusMode {
+	DISABLED, // no /status endpoint
+	BASIC, // basic info name,version
+	EXTENDED // cpu and memory usage
+}
+
+export type AutomatonServerConfig = {
+	name?: string
+	version?: string
+	statusMode?: StatusMode
+	fileCaching?: boolean
+	serveNodeModules?: false|string
+}
+
+// reexport the underlying auth systems
+export {default as AuthenticationAuthorizationSystem} from './auth/AuthenticationAuthorizationSystem.js';
+export {default as MicrosoftAuth} from "./auth/MicrosoftAuth.js";
+export {default as ServerApiEndpoint} from './api/ServerApiEndpoint.js';
+export {Body} from './api/RequestWrapper.js';
 
 /**
  * 
@@ -22,7 +41,7 @@ let VERSION = packagejson.version;
 export default class AutomatonServer{
 
 	static Cluster(size: number, path: string): AutomatonServer{
-		if(cluster.isMaster){
+		if(cluster.isPrimary){
 			for(let s = 0; s < size; s++)
 				cluster.fork();
 			return null;
@@ -33,6 +52,9 @@ export default class AutomatonServer{
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	static Auth = {
 		System: AuthenticationAuthorizationSystem,
 		Microsoft: MicrosoftAuth,
@@ -49,24 +71,29 @@ export default class AutomatonServer{
 		svg: 'image/svg+xml'
 	}
 
-	static HEADERS = {};
-	static FILE_CACHING = false;
-	static EXTENDED_STATUS_MODE = false;
+	static HEADERS: http.OutgoingHttpHeaders = {};
 
-	static SERVE_NODE_MODULES: false|string = false;
+	config: AutomatonServerConfig = {
+		name: packagejson.name,
+		version: packagejson.version,
+		statusMode: StatusMode.BASIC,
+		fileCaching: false,
+		serveNodeModules: false
+	};
 
-
-	#api: Record<string, ServerApiEndpoint> = {};
+	#api: Record<string, ServerApiEndpoint<unknown, unknown>> = {};
 
 	#serve: {folder:string, path:string}[] = [];
 
-	#auth: AuthenticationAuthorizationSystem = AutomatonServer.Auth.NO_AUTH;
+	#auth: AuthenticationAuthorizationSystem<unknown,unknown> = AuthenticationAuthorizationSystem.NONE;
 
 	verbose = true;
-	name: string;
 	http: http.Server;
 
+
+	// /status endpoint config
 	statusCache: any = null;
+
 
 	#nodeModulesCache: Record<string, string> = {};
 
@@ -77,20 +104,15 @@ export default class AutomatonServer{
 	 * 
 	 */
 	constructor(){
-		this.name = packagejson.name;
-
-		this.setDefaultAuth
-
 		this.http = http.createServer(this.#handle.bind(this));
-
 	}
 
 	setName(name: string): AutomatonServer{
-		this.name = name;
+		this.config.name = name;
 		return this;
 	}
 
-	setDefaultAuth(auth: AuthenticationAuthorizationSystem){
+	setDefaultAuth(auth: AuthenticationAuthorizationSystem<unknown,unknown>){
 		this.#auth = auth;
 		return this;
 	}
@@ -99,7 +121,7 @@ export default class AutomatonServer{
 		// actually start the server
 		this.http.listen(port, () => {
 			if(this.verbose){
-				console.log(`'${this.name}' server running at port ${port}`);
+				console.log(`'${this.config.name}' server running at port ${port}`);
 			}
 		});
 		return this;
@@ -121,7 +143,7 @@ export default class AutomatonServer{
 	 * Status endpoint response
 	 */
 	async status(){
-		if(AutomatonServer.EXTENDED_STATUS_MODE){
+		if(this.config.statusMode == StatusMode.EXTENDED){
 			if(this.statusCache == null || Date.now() > this.statusCache.expires){
 
 				let heap = v8.getHeapStatistics();
@@ -131,9 +153,9 @@ export default class AutomatonServer{
 
 				this.statusCache = {
 					value: {
-						service: this.name,
+						service: this.config.name,
 						host: process.env.HOSTNAME ?? os.hostname(),
-						version: VERSION,
+						version: this.config.version,
 						cpuload: {
 							"1min":cpuLoad[0],
 							"5min":cpuLoad[1],
@@ -150,9 +172,9 @@ export default class AutomatonServer{
 			return this.statusCache.value;
 		}else{
 			return {
-				service: this.name,
+				service: this.config.name,
 				host: process.env.HOSTNAME ?? os.hostname(),
-				version: VERSION
+				version: this.config.version
 			};
 		}
 	}
@@ -172,7 +194,7 @@ export default class AutomatonServer{
 	}
 
 	serveNodeModules(path = 'libs'){
-		AutomatonServer.SERVE_NODE_MODULES = '/' + path;
+		this.config.serveNodeModules = '/' + path;
 		this.serve('/' + path, './node_modules/');
 		return this;
 	}
@@ -186,7 +208,7 @@ export default class AutomatonServer{
 						return resolve(null);
 					}
 					let json = JSON.parse(packageText);
-					let truepath = Path.join(AutomatonServer.SERVE_NODE_MODULES+'', '/', lib, json.main);
+					let truepath = Path.join(this.config.serveNodeModules+'', '/', lib, json.main);
 					truepath = truepath.replace(/\\/g, '/');
 					resolve(truepath);
 				});
@@ -212,7 +234,7 @@ export default class AutomatonServer{
 		return this;
 	}
 
-	api(root: string, auth:AuthenticationAuthorizationSystem = this.#auth): ServerApiEndpoint{
+	api<User, Permissions>(root: string, auth:AuthenticationAuthorizationSystem<User, Permissions> = <AuthenticationAuthorizationSystem<User, Permissions>>this.#auth): ServerApiEndpoint<User, Permissions>{
 		if(!root.startsWith('/')){
 			root='/'+root;
 		}
@@ -222,7 +244,7 @@ export default class AutomatonServer{
 		if(!this.#api[root]){
 			this.#api[root] = new ServerApiEndpoint(this, root, auth);
 		}
-		return this.#api[root];
+		return <ServerApiEndpoint<User, Permissions>>this.#api[root];
 	}
 
 	/**
@@ -239,7 +261,7 @@ export default class AutomatonServer{
 
 			let method = req.method.toUpperCase();
 			// path
-			let path = URL.parse(req.url.trim(), true).pathname;
+			let path = parsedUrl.pathname;
 			if(!path.endsWith('/')){
 				path += '/';
 			}
@@ -252,7 +274,7 @@ export default class AutomatonServer{
 			}
 
 			// status endpoint
-			if(parsedUrl.pathname == '/status'){
+			if(parsedUrl.pathname == '/status' && this.config.statusMode!=StatusMode.DISABLED){
 				return reply.json(await this.status());
 			}
 	

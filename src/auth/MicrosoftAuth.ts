@@ -2,7 +2,7 @@ import { IncomingMessage } from 'http';
 import fetch from 'node-fetch';
 import AuthenticationAuthorizationSystem from './AuthenticationAuthorizationSystem.js';
 
-export default class MicrosoftAuth extends AuthenticationAuthorizationSystem {
+export default class MicrosoftAuth<Permissions> extends AuthenticationAuthorizationSystem<{username: string}, Permissions> {
 	override async authentication(req: IncomingMessage) {
 		let bearerToken = req.headers.authorization;
 		if (bearerToken == '' || bearerToken == null) {
@@ -25,4 +25,9 @@ export default class MicrosoftAuth extends AuthenticationAuthorizationSystem {
 			username: json.mail
 		};
 	}
+
+	override async authorization(user: { username: string; }): Promise<Permissions> {
+		return <Permissions>{};
+	}
+
 }

@@ -1,9 +1,9 @@
 
 import Responder from '../Responder.js';
-import RequestWrapper from './RequestWrapper.js';
+import RequestWrapper, { Body, BodyType } from './RequestWrapper.js';
 import AuthenticationAuthorizationSystem from '../auth/AuthenticationAuthorizationSystem.js';
 import { Server } from 'http';
-import AutomatonServer from '../AutomatonServer.js';
+import AutomatonServer, { StatusMode } from '../AutomatonServer.js';
 
 type VariableFactory = {
 	name: string;
@@ -47,22 +47,33 @@ function parseVariableFactory(input: string) : VariableFactory{
 	};
 }
 
-export type HandlerCallback = (res: Responder, args: any) => Promise<any>;
+export type HandlerCallback<User, Permission, X> = (res: Responder, args: ReplyArgs<User, Permission, X>) => Promise<any>;
 
-export default class Handler {
+export type ReplyArgs<User, Permissions, X> = {
+	user: User
+	permissions: Permissions
+	body?: X
+
+	// params
+	[index: string]: any
+}
+
+export default class Handler<User, Permissions, X> {
+
+	server: AutomatonServer;
 
 	path: RegExp;
 
 	pathVariables: VariableFactory[] = [];
 	queryVariables: VariableFactory[] = [];
 
-	body: any;
+	body: Body;
 
 	method: string;
 
-	func: HandlerCallback;
+	func: HandlerCallback<User, Permissions, X>;
 
-	#auth: AuthenticationAuthorizationSystem;
+	#auth: AuthenticationAuthorizationSystem<User, Permissions>;
 
 	/**
 	 * 
@@ -73,7 +84,8 @@ export default class Handler {
 	 * @param params 
 	 * @param func 
 	 */
-	constructor(path: string, method: string, body: any, auth: AuthenticationAuthorizationSystem, params: string[], func: HandlerCallback) {
+	constructor(server: AutomatonServer, path: string, method: string, body: Body, auth: AuthenticationAuthorizationSystem<User, Permissions>, params: string[], func: HandlerCallback<User, Permissions, X>) {
+		this.server = server;
 		// extract path args
 		while (path.includes('{')) {
 			let variable = path.substring(path.indexOf('{'), path.indexOf('}') + 1);
@@ -103,7 +115,7 @@ export default class Handler {
      *
      * @returns
      */
-	async handle(method: string, path: string, request: RequestWrapper, reply: Responder): Promise<Boolean> {
+	async handle(method: string, path: string, request: RequestWrapper<User, Permissions>, reply: Responder): Promise<Boolean> {
 		if (this.method != method)
 			return false;
 
@@ -117,7 +129,7 @@ export default class Handler {
 			return await reply.error("Permission denied", 403);
 
 		// compute vars
-		let args = {} as any;
+		let args = {} as ReplyArgs<User, Permissions, X>;
 		parts.shift();
 		for (let v of this.pathVariables)
 			v.set(args, decodeURI(parts.shift()));
@@ -137,7 +149,7 @@ export default class Handler {
 
 		// grab the body if requested
 		if (this.body) {
-			args.body = await request.readBody(this.body);
+			args.body = <X><unknown> await request.readBody(this.body);
 		}
 
 		// and call the function
@@ -149,7 +161,7 @@ export default class Handler {
 			let msg : any = {
 				"status": "Internal Server Error"
 			};
-			if(AutomatonServer.EXTENDED_STATUS_MODE){
+			if(this.server.config.statusMode == StatusMode.EXTENDED){
 				msg.error = e.message;
 				msg.trace = e.stack;
 			}

@@ -1,6 +1,6 @@
 import assert from 'assert';
 
-import Server from '../dist/AutomatonServer.js';
+import Server, { StatusMode } from '../dist/AutomatonServer.js';
 import fetch from 'node-fetch';
 
 const SERVER_NAME = 'automaton-server';
@@ -16,6 +16,7 @@ async function getJson(path){
 describe('Server', ()=>{
 
 	SERVER.verbose = false;
+	SERVER.config.statusMode = StatusMode.EXTENDED;
 	SERVER.start(SERVER_PORT);
 
 	describe('start(port)', ()=>{

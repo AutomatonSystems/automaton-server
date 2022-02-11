@@ -7,11 +7,15 @@ let id = 0;
  *  - the user is who they say they are (authentication)
  *  - the user access permissions (authorization)
  */
-export default class AuthenticationAuthorizationSystem {
+export default abstract class AuthenticationAuthorizationSystem<User, Permissions> {
 
-	static NONE = new (class extends AuthenticationAuthorizationSystem{
+	static NONE = new (class extends AuthenticationAuthorizationSystem<string, boolean>{
 		override async authentication(req: IncomingMessage){
-			return {username: ""}
+			return "";
+		}
+
+		override async authorization(username: string): Promise<boolean> {
+			return true;
 		}
 	})();
 
@@ -28,11 +32,11 @@ export default class AuthenticationAuthorizationSystem {
 	 * @param req the http request object this service is being asked to auth & auth
 	 * @returns 
 	 */
-	async perform(req: IncomingMessage): Promise<{user: any, permissions: any}>{
+	async perform(req: IncomingMessage): Promise<{user: User, permissions: Permissions}>{
 		let user = await this.authentication(req);
 		if(user == null)
 			return null;
-		let permissions = await this.authorization(user.username);
+		let permissions = await this.authorization(user);
 		if(permissions == null)
 			return null;
 		return {
@@ -46,17 +50,13 @@ export default class AuthenticationAuthorizationSystem {
      * Returns the authenticated user
      *
      */
-	async authentication(req: IncomingMessage): Promise<{username: string}|null>{
-		return null;
-	}
+	abstract authentication(req: IncomingMessage): Promise<User|null>;
 
     /**
      *
      * Returns the permissions for a user
      *
      */
-	async authorization(username: string): Promise<any>{
-		return {};
-	}
+	abstract authorization(user: User): Promise<Permissions>;
 }
 

@@ -72,7 +72,7 @@ export default class Responder {
 
 		let params: any = { encoding: 'utf8', status, zip, cors, type: mime, headers: unzip?{'content-encoding':'gzip'}:{}};
 
-		if(Server.FILE_CACHING){
+		if(this.server.config.fileCaching){
 			let lastModified = fs.statSync(path).mtime;
 			lastModified.setMilliseconds(0);
 			params.lastModified = lastModified;
@@ -99,7 +99,7 @@ export default class Responder {
 				// send back the file
 				fs.readFile(path, async (_, content) => {
 					// node_modules rewrites
-					if(Server.SERVE_NODE_MODULES && path.endsWith(".js")){
+					if(this.server.config.serveNodeModules && path.endsWith(".js")){
 						let text = content.toString('utf8');
 						// find imports that are from node_modules - IE ones that don't have a . or / character
 						// import something from "a-package";

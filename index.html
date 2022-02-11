@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+    <head>
+
+    </head>
+    <body>
+        <input type="file"/>
+
+        <script>
+            function doPost(){
+
+                var input = document.querySelector('input[type="file"]')
+
+                fetch("/api/file", {
+                    method: 'POST',
+                    body: input.files[0]
+                })
+            }
+
+            function doPost2(){
+                var input = document.querySelector('input[type="file"]')
+
+                fetch("/api/array", {
+                    method: 'POST',
+                    body: input.files[0]
+                })
+            }
+        </script>
+
+        <div>
+
+            hello
+
+
+                <button onclick ="doPost()">
+                    SEND FILE
+
+                </button>
+
+                <button onclick ="doPost2()">
+                    SEND FILE 2
+
+                </button>
+        </div>
+    </body>
+</html>
