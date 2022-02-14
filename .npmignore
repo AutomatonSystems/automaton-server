@@ -3,3 +3,4 @@ test/
 coverage/
 tsconfig.json
 example.js
+cluster-example.js
