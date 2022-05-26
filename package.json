@@ -1,6 +1,6 @@
 {
 	"name": "automaton-server",
-	"version": "1.5.0-a",
+	"version": "1.5.0-b",
 	"type": "module",
 	"description": "",
 	"main": "dist/AutomatonServer.js",
