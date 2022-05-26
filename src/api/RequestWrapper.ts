@@ -99,9 +99,10 @@ export default class RequestWrapper<User, Permission> {
 					let obj = {} as JsonObject;
 					let promises: Promise<void>[] = [];
 					try{
-						let busboy = new Busboy({headers: this.req.headers});
+						let busboy = Busboy({headers: this.req.headers});
 						busboy
-							.on('file', (fieldname, file, filename, encoding, mimetype)=>{
+							.on('file', (fieldname, file, info)=>{
+								const { filename, encoding, mimeType } = info;
 								promises.push((async ()=>{
 									// read the bytes of the file
 									let data = [];
@@ -118,14 +119,14 @@ export default class RequestWrapper<User, Permission> {
 										name: filename,
 										data: data.length?Buffer.concat(data):text,
 										encoding,
-										mimetype
+										mimeType
 									}
 								})());
 							})
 							.on('field', (fieldname, val)=>{
 								obj[fieldname] = val;
 							})
-							.on('finish', ()=>{
+							.on('close', ()=>{
 								Promise.allSettled(promises).then(()=>res(obj as BodyType<T>));
 							});
 						this.req.pipe(busboy);

@@ -17,7 +17,7 @@ export default class MicrosoftAuth<Permissions> extends AuthenticationAuthorizat
 				}
 			});
 
-		let json = await resp.json();
+		let json: any = await resp.json();
 		if (json == null || json.mail == null) {
 			return null;
 		}
