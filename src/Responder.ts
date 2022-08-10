@@ -11,13 +11,16 @@ type Json =  null | string | number | boolean | Json [] |  Date | { [key: string
  */
 export default class Responder {
 
+	rid: number;
+	start = Date.now();
 	request: http.IncomingMessage;
 	response;
 	#fileCache: Record<string, {lastModified:Date, content: Buffer}> = {};
 	path: string;
 	server: AutomatonServer;
 
-	constructor(server: AutomatonServer, request: http.IncomingMessage, response: http.ServerResponse) {
+	constructor(server: AutomatonServer, rid: number, request: http.IncomingMessage, response: http.ServerResponse) {
+		this.rid = rid;
 		this.server = server;
 		this.request = request;
 		this.response = response;
@@ -175,6 +178,10 @@ export default class Responder {
 
 		this.response.writeHead(status, respHeaders);
 		this.response.end(buffer, encoding);
+
+		if(AutomatonServer.REQUEST_RESPONSE_LOGGING){
+			console.debug(`${this.rid} <- ${status} (${Math.floor(Date.now() - this.start).toLocaleString()}ms)`);
+		}
 
 		return true;
 	}

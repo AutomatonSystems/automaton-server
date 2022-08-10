@@ -1,7 +1,7 @@
 import Server from './dist/AutomatonServer.js';
 
-let server = new Server('test', Server.Auth.NO_AUTH);
-
+let server = new Server();
+Server.REQUEST_RESPONSE_LOGGING = true;
 Server.EXTENDED_STATUS_MODE = true;
 
 server

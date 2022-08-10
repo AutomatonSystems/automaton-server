@@ -15,6 +15,7 @@ import Path from 'path';
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));
 let VERSION = packagejson.version;
 
+let RQ_ID = 0;
 
 /**
  * 
@@ -54,6 +55,7 @@ export default class AutomatonServer{
 	static EXTENDED_STATUS_MODE = false;
 
 	static SERVE_NODE_MODULES: false|string = false;
+	static REQUEST_RESPONSE_LOGGING = false;
 
 
 	#api: Record<string, ServerApiEndpoint> = {};
@@ -231,7 +233,11 @@ export default class AutomatonServer{
 	 * @param res 
 	 */
 	async #handle(req: http.IncomingMessage, res: http.ServerResponse){
-		let reply = new Responder(this, req, res);
+		let rid = RQ_ID++;
+		if(AutomatonServer.REQUEST_RESPONSE_LOGGING){
+			console.debug(`${rid} -> ${req.url.trim()}`);
+		}
+		let reply = new Responder(this, rid, req, res);
 		try{
 			// pre-process incoming request
 			let parsedUrl = URL.parse(req.url.trim(), true);
