@@ -1,15 +1,15 @@
-import URL from 'url';
-import http from 'http';
-import fs from 'fs';
-import cluster from 'cluster';
+import URL from 'node:url';
+import http from 'node:http';
+import fs from 'node:fs';
+import cluster from 'node:cluster';
+import v8 from "v8";
+import os from 'os';
+import Path from 'path';
 
 import AuthenticationAuthorizationSystem from './auth/AuthenticationAuthorizationSystem.js';
 import MicrosoftAuth from "./auth/MicrosoftAuth.js";
 import ServerApiEndpoint from './api/ServerApiEndpoint.js';
 import Responder from './Responder.js';
-import v8 from "v8";
-import os from 'os';
-import Path from 'path';
 
 
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));

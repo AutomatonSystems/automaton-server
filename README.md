@@ -1,12 +1,14 @@
 # automaton-server
 
+[![npm install][https://nodei.co/npm/automaton-server.png?compact=true]][https://www.npmjs.com/package/automaton-server]
+
 A simple combined file and API server for rapid webapp building.
 
 ## Usage
 
 `npm install automaton-server`
 
-### Basic Example
+### Basic Exampleserverserver
 ```javascript
 import Server from 'automaton-server';
 

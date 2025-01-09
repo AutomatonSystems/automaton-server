@@ -129,7 +129,7 @@ export default class RequestWrapper<User, Permission> {
 							.on('close', ()=>{
 								Promise.allSettled(promises).then(()=>res(obj as BodyType<T>));
 							});
-						this.req.pipe(busboy);
+						this.req.pipe(<any>busboy);
 					}catch(e){
 						console.warn("Failed to parse FORM body\n", e);
 						res(null);
