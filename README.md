@@ -1,6 +1,7 @@
 # automaton-server
 
-[![npm install][https://nodei.co/npm/automaton-server.png?compact=true]][https://www.npmjs.com/package/automaton-server]
+[![https://nodei.co/npm/automaton-server.png?compact=true](https://nodei.co/npm/automaton-server.png?compact=true)](https://www.npmjs.com/package/automaton-server)
+
 
 A simple combined file and API server for rapid webapp building.
 
