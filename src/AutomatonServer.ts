@@ -14,6 +14,7 @@ import Responder from './Responder.js';
 
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));
 
+let RQ_ID = 0;
 
 export enum StatusMode {
 	DISABLED, // no /status endpoint
@@ -253,7 +254,11 @@ export default class AutomatonServer{
 	 * @param res 
 	 */
 	async #handle(req: http.IncomingMessage, res: http.ServerResponse){
-		let reply = new Responder(this, req, res);
+		let rid = RQ_ID++;
+		if(AutomatonServer.REQUEST_RESPONSE_LOGGING){
+			console.debug(`${rid} -> ${req.url.trim()}`);
+		}
+		let reply = new Responder(this, rid, req, res);
 		try{
 			// pre-process incoming request
 			let parsedUrl = URL.parse(req.url.trim(), true);
