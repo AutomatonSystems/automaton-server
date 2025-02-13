@@ -28,6 +28,8 @@ export type AutomatonServerConfig = {
 	statusMode?: StatusMode
 	fileCaching?: boolean
 	serveNodeModules?: false|string
+	ReqResLogging?: boolean
+	transpileTypescript?: boolean
 }
 
 // reexport the underlying auth systems
@@ -65,6 +67,7 @@ export default class AutomatonServer{
 	static Mimes: Record<string, string>= {
 		html: 'text/html',
 		js :'application/javascript',
+		ts :'application/javascript', // via transpilation
 		wasm: 'application/wasm',
 		css: 'text/css',
 		jpg: 'image/jpg',
@@ -79,7 +82,9 @@ export default class AutomatonServer{
 		version: packagejson.version,
 		statusMode: StatusMode.BASIC,
 		fileCaching: false,
-		serveNodeModules: false
+		serveNodeModules: false,
+		ReqResLogging: false,
+		transpileTypescript: true 
 	};
 
 	#api: Record<string, ServerApiEndpoint<unknown, unknown>> = {};
@@ -255,7 +260,7 @@ export default class AutomatonServer{
 	 */
 	async #handle(req: http.IncomingMessage, res: http.ServerResponse){
 		let rid = RQ_ID++;
-		if(AutomatonServer.REQUEST_RESPONSE_LOGGING){
+		if(this.config.ReqResLogging){
 			console.debug(`${rid} -> ${req.url.trim()}`);
 		}
 		let reply = new Responder(this, rid, req, res);
@@ -294,10 +299,16 @@ export default class AutomatonServer{
 
 				if(requested.startsWith(path)){
 					requested = requested.substring(path.length);
-					// check if I need to serve a file
+					// check if I need to serve a file 
 					let asset = folder+'/'+requested;
-					if(valid(asset)){
-						return reply.file(asset);
+
+					let dynamic = reply.getDynamic(asset);
+					if(dynamic){
+						return reply.file(asset, {srcpath: requested});
+					}else if(valid(asset)){
+						return reply.file(asset, {srcpath: requested});
+					}else if(valid(asset.replace(".js", ".ts"))){
+						return reply.file(asset.replace(".js", ".ts"), {srcpath: requested});
 					}else if(valid(asset + '.html')){
 						return reply.file(asset + '.html');
 					}else if(valid(asset + '/index.html')){
@@ -306,6 +317,8 @@ export default class AutomatonServer{
 				}
 			}
 	
+			console.warn("404", path)
+
 			//no data
 			return reply.error("File not found", 404);
 		}catch(e){

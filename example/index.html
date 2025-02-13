@@ -6,7 +6,11 @@
     <body>
         <input type="file"/>
 
-        <script>
+        <script type="module">
+            import {greet} from "./ts/exampleTypescript.js";
+
+            greet();
+
             function doPost(){
 
                 var input = document.querySelector('input[type="file"]')

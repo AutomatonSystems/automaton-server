@@ -2,14 +2,17 @@
 
 [![https://nodei.co/npm/automaton-server.png?compact=true](https://nodei.co/npm/automaton-server.png?compact=true)](https://www.npmjs.com/package/automaton-server)
 
+ZERO compile step combined webserver & API.
 
 A simple combined file and API server for rapid webapp building.
+
+Transparently serves typescript files via transpilation. Just import the .ts file with a .js extension instead!
 
 ## Usage
 
 `npm install automaton-server`
 
-### Basic Exampleserverserver
+### Basic Example
 ```javascript
 import Server from 'automaton-server';
 

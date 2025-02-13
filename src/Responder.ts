@@ -2,9 +2,12 @@ import fs from 'fs';
 import zlib from 'zlib';
 import Server from './AutomatonServer.js';
 import http from 'http';
-
+import ts, { ModuleKind } from "typescript";
 import AutomatonServer from './AutomatonServer.js';
 type Json =  null | string | number | boolean | Json [] |  Date | { [key: string]: Json };
+
+const fileCache: Record<string, {lastModified:Date, content: Buffer}> = {};
+const dynamicFiles: Record<string, Buffer> = {};
 
 /**
  * Wrapper class to make returning various common patterns a simple async call
@@ -15,7 +18,7 @@ export default class Responder {
 	start = Date.now();
 	request: http.IncomingMessage;
 	response;
-	#fileCache: Record<string, {lastModified:Date, content: Buffer}> = {};
+
 	path: string;
 	server: AutomatonServer;
 
@@ -60,20 +63,30 @@ export default class Responder {
 		return await this.raw(JSON.stringify(json, null, '\t'), { encoding: 'utf8', status, zip, cors });
 	}
 
+	getDynamic(path: string){
+		console.log("GET", path, Object.keys(dynamicFiles));
+		return dynamicFiles[path];
+	}
+
     /**
      * Return a file as a response, optionally zipping it first
 	 * 
      * @param path
      * @param opts
      */
-	async file(path: string, { status = 200, zip = false, cors = false, unzip = false} = {}) {
+	async file(path: string, { status = 200, zip = false, cors = false, unzip = false, srcpath = path} = {}) {
 		let ext = path.substring(path.lastIndexOf('.') + 1);
-		ext=ext.replace('/', '').toLocaleLowerCase();
+		ext = ext.replace('/', '').toLocaleLowerCase();
 		let mime = Server.Mimes[ext] || 'text/plain';
 
 		let lastModified: Date= null;
 
 		let params: any = { encoding: 'utf8', status, zip, cors, type: mime, headers: unzip?{'content-encoding':'gzip'}:{}};
+
+		if(this.getDynamic(path)){
+			console.log("DYNAMIC!");
+			return await this.raw(this.getDynamic(path), params);
+		}
 
 		if(this.server.config.fileCaching){
 			let lastModified = fs.statSync(path).mtime;
@@ -88,7 +101,7 @@ export default class Responder {
 				}
 			}
 
-			let cache = this.#fileCache[path];
+			let cache = fileCache[path];
 			
 			if(cache?.lastModified <= lastModified){
 				// return the cached file
@@ -139,9 +152,29 @@ export default class Responder {
 							content = Buffer.from(text,'utf8');
 						}
 					}
+
+					// transpile
+					// TODO rewrite accidental .ts imports (or extensionless!)
+					if(this.server.config.transpileTypescript && path.endsWith(".ts") && srcpath.endsWith(".js")){
+						// store ts
+						// dynamicFiles[path.replace(".ts", ".ts")] = content;
+						let inputtext = content.toString('utf8');
+						let output = ts.transpileModule(inputtext, {
+							fileName: srcpath.replace(".js", ".ts"),
+							compilerOptions: {
+								sourceMap: true,
+								module: ModuleKind.ES2022
+							}
+						});
+						// transpiled TS
+						content = Buffer.from(output.outputText,'utf8');
+						// source map
+						dynamicFiles[path.replace(".ts", ".js.map")] = Buffer.from(output.sourceMapText, 'utf8');
+					}
+
 					// cache the file
 					if(lastModified)
-						this.#fileCache[path] = {lastModified, content};
+						fileCache[path] = {lastModified, content};
 					// send reponse
 					let rawSent = await this.raw(content, params);
 					resolvePromise(rawSent);
@@ -172,14 +205,14 @@ export default class Responder {
 
 		if (zip) {
 			respHeaders['content-encoding'] = 'gzip';
-			buffer = await new Promise(resZip => zlib.gzip(buffer, (_, result) => resZip(result)));
+			buffer = await new Promise(resZip => zlib.gzip(<any>buffer, (_, result) => resZip(result)));
 			encoding = 'binary';
 		}
 
 		this.response.writeHead(status, respHeaders);
 		this.response.end(buffer, encoding);
 
-		if(AutomatonServer.REQUEST_RESPONSE_LOGGING){
+		if(this.server.config.ReqResLogging){
 			console.debug(`${this.rid} <- ${status} (${Math.floor(Date.now() - this.start).toLocaleString()}ms)`);
 		}
 

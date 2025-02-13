@@ -1,34 +1,29 @@
 {
-	"name": "automaton-server",
-	"version": "1.5.0-b",
+	"name": "@automaton.systems/server",
+	"version": "2.0.0-prealpha1",
 	"type": "module",
 	"description": "",
 	"main": "dist/AutomatonServer.js",
 	"types": "dist/AutomatonServer.d.ts",
 	"scripts": {
-		"test": "c8 mocha './test/**/*.js'",
-		"start": "node example",
-		"debug": "node --inspect example",
-		"build": "tsc",
+		"test": "c8 mocha './test/*.js'",
+		"start": "tsx example/example",
+		"build": "tsc --noCheck",
 		"dev": "tsc --watch"
 	},
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
 		"busboy": "^1.6.0",
-		"node-fetch": "^3.1.1"
+		"node-fetch": "^3.1.1",
+		"typescript": "^5.7.3"
 	},
 	"devDependencies": {
+		"tsx": "^4.19.2",
 		"@types/busboy": "^1.5.0",
 		"@types/node": "^17.0.45",
 		"@types/node-fetch": "^2.5.10",
-		"babel-eslint": "^10.1.0",
 		"c8": "^7.1.0",
-		"eslint": "^7.0.0",
-		"mocha": "^9.2.0",
-		"nodemon": "^2.0.4",
-		"pre-commit": "^1.2.2",
-		"typescript": "^4.5.5"
-	},
-	"prepublish": "tsc"
+		"mocha": "^11.1.0"
+	}
 }
