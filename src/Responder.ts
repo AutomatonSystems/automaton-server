@@ -64,7 +64,6 @@ export default class Responder {
 	}
 
 	getDynamic(path: string){
-		console.log("GET", path, Object.keys(dynamicFiles));
 		return dynamicFiles[path];
 	}
 
@@ -84,7 +83,6 @@ export default class Responder {
 		let params: any = { encoding: 'utf8', status, zip, cors, type: mime, headers: unzip?{'content-encoding':'gzip'}:{}};
 
 		if(this.getDynamic(path)){
-			console.log("DYNAMIC!");
 			return await this.raw(this.getDynamic(path), params);
 		}
 
@@ -115,7 +113,7 @@ export default class Responder {
 				// send back the file
 				fs.readFile(path, async (_, content) => {
 					// node_modules rewrites
-					if(this.server.config.serveNodeModules && path.endsWith(".js")){
+					if(this.server.config.serveNodeModules && (path.endsWith(".js") || path.endsWith(".ts"))){
 						let text = content.toString('utf8');
 						// find imports that are from node_modules - IE ones that don't have a . or / character
 						// import something from "a-package";
