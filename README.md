@@ -1,6 +1,6 @@
-# automaton-server
+# @automaton.systems/server
 
-[![https://nodei.co/npm/automaton-server.png?compact=true](https://nodei.co/npm/automaton-server.png?compact=true)](https://www.npmjs.com/package/automaton-server)
+[![https://nodei.co/npm/@automaton.systems/server.png?compact=true](https://nodei.co/npm/@automaton.systems/server.png?compact=true)](https://www.npmjs.com/package/@automaton.systems/server)
 
 ZERO compile step combined webserver & API.
 
@@ -10,13 +10,13 @@ Transparently serves typescript files via transpilation. Just import the .ts fil
 
 ## Usage
 
-`npm install automaton-server`
+`npm install "@automaton.systems/server"`
 
 ### Basic Example
 ```javascript
-import Server from 'automaton-server';
+import Server from '@automaton.systems/server';
 
-let server = new Server('test', Server.Auth.NO_AUTH);
+let server = new Server();
 server
 	.serve('/','./public')
 	.api('api')

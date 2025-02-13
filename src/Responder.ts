@@ -2,7 +2,7 @@ import fs from 'fs';
 import zlib from 'zlib';
 import Server from './AutomatonServer.js';
 import http from 'http';
-import ts, { ModuleKind } from "typescript";
+import ts, { ModuleKind, ScriptTarget } from "typescript";
 import AutomatonServer from './AutomatonServer.js';
 type Json =  null | string | number | boolean | Json [] |  Date | { [key: string]: Json };
 
@@ -155,13 +155,12 @@ export default class Responder {
 					// TODO rewrite accidental .ts imports (or extensionless!)
 					if(this.server.config.transpileTypescript && path.endsWith(".ts") && srcpath.endsWith(".js")){
 						// store ts
-						// dynamicFiles[path.replace(".ts", ".ts")] = content;
 						let inputtext = content.toString('utf8');
 						let output = ts.transpileModule(inputtext, {
 							fileName: srcpath.replace(".js", ".ts"),
 							compilerOptions: {
-								sourceMap: true,
-								module: ModuleKind.ES2022
+								target: ScriptTarget.ES2024,
+								sourceMap: true
 							}
 						});
 						// transpiled TS

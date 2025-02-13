@@ -3,3 +3,13 @@ export function greet(): void{
 
 	throw(new Error("STACK TRACE!"));
 }
+
+export class Lemon{
+	constructor(){
+		
+	}
+
+	func(){
+		console.log("hey hey");
+	}
+}
