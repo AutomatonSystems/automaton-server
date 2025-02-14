@@ -37,6 +37,22 @@ export {default as AuthenticationAuthorizationSystem} from './auth/Authenticatio
 export {default as MicrosoftAuth} from "./auth/MicrosoftAuth.js";
 export {default as ServerApiEndpoint} from './api/ServerApiEndpoint.js';
 export {Body} from './api/RequestWrapper.js';
+export type {FormFile} from './api/RequestWrapper.js';
+
+export function metaname<T>(value: string, func: T){
+	Object.defineProperty(func, "name", {value});
+	return func;
+}
+
+export function metabody<T>(value: string, func: T){
+	Object.defineProperty(func, "body", {value});
+	return func;
+}
+
+export function metaresp<T>(value: string, func: T){
+	Object.defineProperty(func, "resp", {value});
+	return func;
+}
 
 /**
  * 

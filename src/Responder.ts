@@ -12,7 +12,7 @@ const dynamicFiles: Record<string, Buffer> = {};
 /**
  * Wrapper class to make returning various common patterns a simple async call
  */
-export default class Responder {
+export default class Responder<R> {
 
 	rid: number;
 	start = Date.now();
@@ -37,8 +37,7 @@ export default class Responder {
 	 * @param code 
 	 */
 	async error(info: any, code = 500) {
-
-		return await this.json({ "error": info, "path": this.path }, { status: code });
+		return await this.json(<R>{ "error": info, "path": this.path }, { status: code });
 	}
 
 	/**
@@ -59,7 +58,7 @@ export default class Responder {
 	 * @param json 
 	 * @param opts 
 	 */
-	async json(json: Json, { status = 200, zip = false, cors = false } = {}) {
+	async json(json: R, { status = 200, zip = false, cors = false } = {}) {
 		return await this.raw(JSON.stringify(json, null, '\t'), { encoding: 'utf8', status, zip, cors });
 	}
 

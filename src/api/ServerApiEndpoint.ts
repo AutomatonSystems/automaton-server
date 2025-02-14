@@ -1,20 +1,20 @@
-import Handler, { HandlerCallback } from "./Handler.js";
+import Handler, { HandlerCallback, VariableFactory } from "./Handler.js";
 import AuthenticationAuthorizationSystem from '../auth/AuthenticationAuthorizationSystem.js';
 import Responder from "../Responder.js";
 
-import RequestWrapper, { Body, BodyType } from './RequestWrapper.js';
+import RequestWrapper, { Body, BodyParser } from './RequestWrapper.js';
 import http from 'http';
 import AutomatonServer from "../AutomatonServer.js";
 
-type EndpointOption<User, Permissions, X> = (AuthenticationAuthorizationSystem<User, Permissions>|string[]|HandlerCallback<User, Permissions, X>);
-type BodylessEndpointOption<User, Permissions> = (AuthenticationAuthorizationSystem<User, Permissions>|string[]|HandlerCallback<User, Permissions, unknown>);
+type EndpointOption<User, Permissions, X, R> = (AuthenticationAuthorizationSystem<User, Permissions>|string[]|HandlerCallback<User, Permissions, X, R>);
+type BodylessEndpointOption<User, Permissions, R> = (AuthenticationAuthorizationSystem<User, Permissions>|string[]|HandlerCallback<User, Permissions, unknown, R>);
 
 /**
   * 
   */
 export default class ServerApiEndpoint<User, Permissions> {
 	#root: string;
-	#handlers: Handler<unknown,unknown,unknown>[] = [];
+	#handlers: Handler<unknown,unknown,unknown,unknown>[] = [];
 	#auth: AuthenticationAuthorizationSystem<User, Permissions>;
 	#server: AutomatonServer;
 
@@ -38,7 +38,35 @@ export default class ServerApiEndpoint<User, Permissions> {
 		return this.#server.start(port);
 	}
 
-	async handle(method: string, path: string, request: http.IncomingMessage, responder: Responder) {
+	createClient(){
+		console.log("\n\n\nexport class ClientAPI{");
+
+		for(let h of this.#handlers){
+			let name = h.pathString.substring(this.#root.length);
+			if(name.indexOf('/') > 0){
+				name = name.substring(0, name.indexOf('/'));
+			}
+
+			let meta = <any>h.func ?? {};
+
+			let typedArray = (v:VariableFactory[], opt=false)=>v.map(qv=>`${qv.name}${opt?"?":""}:${qv.type}`).join(", ")
+			let pathParams = typedArray(h.pathVariables);
+			let body = (h.method != "GET" && h.method != "HEAD")?`body:${meta.body ?? 'any'}`:"";
+			let queryParams = h.queryVariables.length?`{${h.queryVariables.map(v=>v.name).join(", ")}}:{${typedArray(h.queryVariables, true)}}={}`:"";
+			let functionName = meta.name ? meta.name : `${h.method}${name}`;
+			let returnType = meta.resp ?? "any";
+
+			console.log(`
+	async ${functionName}(${[pathParams, body, queryParams].filter(v=>v).join(", ")}): Promise<${returnType}>{
+		let resp = await fetch(\`${h.pathString}\`, {method: "${h.method}"});
+		let json = await resp.json();
+		return json;
+	}`)
+		}
+		console.log("}\n\n\n");
+	}
+
+	async handle(method: string, path: string, request: http.IncomingMessage, responder: Responder<unknown>) {
 		let req = new RequestWrapper(request);
 		for (let handler of this.#handlers) {
 			if (await handler.handle(method, path, req, responder))
@@ -55,9 +83,9 @@ export default class ServerApiEndpoint<User, Permissions> {
      *
      * @returns
      */
-	endpoint<B extends Body>(method: string, path: string, body: B, ...args: EndpointOption<User, Permissions, BodyType<B>>[]): ServerApiEndpoint<User, Permissions> {
+	endpoint<B, R>(method: string, path: string, body: BodyParser<B>, ...args: EndpointOption<User, Permissions, B, R>[]): ServerApiEndpoint<User, Permissions> {
 		let auth = this.#auth;
-		let callback: HandlerCallback<User, Permissions, BodyType<B>>;
+		let callback: HandlerCallback<User, Permissions, B, R>;
 		let params : string[] = [];
 		for (let arg of args) {
 			if (typeof arg == 'function') {
@@ -77,32 +105,60 @@ export default class ServerApiEndpoint<User, Permissions> {
 		}
 		path = this.#root + path;
 		// actually register the handler
-		this.#handlers.push(new Handler<User, Permissions, BodyType<B>>(this.#server, path, method, body, auth, params, callback));
+		let handler = new Handler<User, Permissions, B,R>(this.#server, path, method, body, auth, params, callback);
+		this.#handlers.push(handler);
 		return this;
 	}
 
-	get(path: string, ...args: BodylessEndpointOption<User, Permissions>[]) {
+	get<R>(path: string, ...args: BodylessEndpointOption<User, Permissions, R>[]) {
 		return this.endpoint("GET", path, Body.NONE, ...args);
 	}
 
-	head(path: string, ...args: BodylessEndpointOption<User, Permissions>[]) {
+	head<R>(path: string, ...args: BodylessEndpointOption<User, Permissions, R>[]) {
 		return this.endpoint("HEAD", path, Body.NONE, ...args);
 	}
 
-
-	post<B extends Body>(path: string, body: B, ...args: EndpointOption<User, Permissions, BodyType<B>>[]) {
+	post<B, R>(path: string, body: BodyParser<B>, ...args: EndpointOption<User, Permissions, B, R>[]) {
 		return this.endpoint("POST", path, body, ...args);
 	}
 
-	delete<B extends Body>(path: string, body: B, ...args: EndpointOption<User, Permissions, BodyType<B>>[]) {
+	delete<B, R>(path: string, body: BodyParser<B>, ...args: EndpointOption<User, Permissions, B, R>[]) {
 		return this.endpoint("DELETE", path,  body, ...args);
 	}
 
-	put<B extends Body>(path: string, body: B, ...args: EndpointOption<User, Permissions, BodyType<B>>[]) {
+	put<B, R>(path: string, body: BodyParser<B>, ...args: EndpointOption<User, Permissions, B, R>[]) {
 		return this.endpoint("PUT", path,  body, ...args);
 	}
 
-	patch<B extends Body>(path: string, body: B, ...args: EndpointOption<User, Permissions, BodyType<B>>[]) {
+	patch<B, R>(path: string, body: BodyParser<B>, ...args: EndpointOption<User, Permissions, B, R>[]) {
 		return this.endpoint("PATCH", path,  body, ...args);
 	}
+
+	proxy(path: string, targetRoot: string|((reply: Responder<unknown>)=>string|Promise<string>)){
+		return this.endpoint("*", path, Body.NONE, async (reply: Responder<unknown>)=>{
+			let root = (typeof targetRoot == "function")?await targetRoot(reply):targetRoot;
+			let targetUrl = new URL(root + reply.request.url.substring("/api/ash/".length));
+			proxyRequest(reply.request, reply.response, targetUrl);
+			return true;
+		});
+	}
+}
+
+function proxyRequest(req: http.IncomingMessage, res: http.ServerResponse, target: URL) {
+	req.pipe(
+		http.request({
+			hostname: target.hostname,
+			port: target.port || (target.protocol === "https:" ? 443 : 80),
+			path: target.pathname + target.search,
+			method: req.method,
+			headers: req.headers,
+		}, (proxyRes) => {
+			res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
+			proxyRes.pipe(res);
+		}).on("error", (err) => {
+			console.error("Proxy request error:", err);
+			res.writeHead(500);
+			res.end("Internal Server Error");
+		})
+	);
 }

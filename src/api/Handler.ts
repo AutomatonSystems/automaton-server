@@ -1,12 +1,12 @@
 
 import Responder from '../Responder.js';
-import RequestWrapper, { Body, BodyType } from './RequestWrapper.js';
+import RequestWrapper, { BodyParser } from './RequestWrapper.js';
 import AuthenticationAuthorizationSystem from '../auth/AuthenticationAuthorizationSystem.js';
-import { Server } from 'http';
 import AutomatonServer, { StatusMode } from '../AutomatonServer.js';
 
-type VariableFactory = {
+export type VariableFactory = {
 	name: string;
+	type: string;
 	set: (obj: any, value: string) => void;
 };
 
@@ -24,6 +24,7 @@ function parseVariableFactory(input: string) : VariableFactory{
 	let [name, type] = input.split(':');
 	return {
 		name: name,
+		type: type ?? "any",
 		set: (obj: any, value: string) => {
 			if (!value)
 				return;
@@ -47,19 +48,18 @@ function parseVariableFactory(input: string) : VariableFactory{
 	};
 }
 
-export type HandlerCallback<User, Permission, X> = (res: Responder, args: ReplyArgs<User, Permission, X>) => Promise<any>;
+export type HandlerCallback<User, Permission, X, R> = (res: Responder<R>, args: ReplyArgs<User, Permission, X>) => Promise<any>;
 
 export type ReplyArgs<User, Permissions, X> = {
 	user: User
 	permissions: Permissions
-	body?: X
+	body: X
 
 	// params
 	[index: string]: any
 }
 
-export default class Handler<User, Permissions, X> {
-
+export default class Handler<User, Permissions, X, R> {
 	server: AutomatonServer;
 
 	path: RegExp;
@@ -67,13 +67,15 @@ export default class Handler<User, Permissions, X> {
 	pathVariables: VariableFactory[] = [];
 	queryVariables: VariableFactory[] = [];
 
-	body: Body;
+	body: BodyParser<X>;
 
 	method: string;
 
-	func: HandlerCallback<User, Permissions, X>;
+	func: HandlerCallback<User, Permissions, X, R>;
 
 	#auth: AuthenticationAuthorizationSystem<User, Permissions>;
+
+	pathString: string;
 
 	/**
 	 * 
@@ -84,14 +86,16 @@ export default class Handler<User, Permissions, X> {
 	 * @param params 
 	 * @param func 
 	 */
-	constructor(server: AutomatonServer, path: string, method: string, body: Body, auth: AuthenticationAuthorizationSystem<User, Permissions>, params: string[], func: HandlerCallback<User, Permissions, X>) {
+	constructor(server: AutomatonServer,rawpath: string, method: string, body: BodyParser<X>, auth: AuthenticationAuthorizationSystem<User, Permissions>, params: string[], func: HandlerCallback<User, Permissions, X, R>) {
 		this.server = server;
-		// extract path args
+		// extract path argz
+		let path = rawpath;
 		while (path.includes('{')) {
 			let variable = path.substring(path.indexOf('{'), path.indexOf('}') + 1);
 			path = path.replace(variable, "([^/]+)");
 			this.pathVariables.push(parseVariableFactory(variable.substring(1, variable.length - 1)));
 		}
+		this.path = new RegExp(path,'i');
 		// add query params
 		this.queryVariables = params.map(parseVariableFactory);
 
@@ -101,10 +105,15 @@ export default class Handler<User, Permissions, X> {
 		// auth system to 
 		this.#auth = auth;
 
-		this.path = new RegExp(path,'i');
 		this.method = method;
 
 		this.func = func;
+
+		// magic client string
+		let p = rawpath;
+		for(let pv of this.pathVariables)
+			p = p.replace(/\/{[\w-]+(?::[a-z]+)?}/, "/${"+pv.name+"}")
+		this.pathString = p;
 	}
 
     /**
@@ -115,8 +124,8 @@ export default class Handler<User, Permissions, X> {
      *
      * @returns
      */
-	async handle(method: string, path: string, request: RequestWrapper<User, Permissions>, reply: Responder): Promise<Boolean> {
-		if (this.method != method)
+	async handle(method: string, path: string, request: RequestWrapper<User, Permissions>, reply: Responder<R>): Promise<Boolean> {
+		if (this.method != method && this.method != "*")
 			return false;
 
 		let parts = path.match(this.path);
@@ -149,7 +158,9 @@ export default class Handler<User, Permissions, X> {
 
 		// grab the body if requested
 		if (this.body) {
-			args.body = <X><unknown> await request.readBody(this.body);
+			args.body = await this.body(request.req);
+
+			// TODO if body is null... reply error
 		}
 
 		// and call the function
