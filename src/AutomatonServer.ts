@@ -29,7 +29,10 @@ export type AutomatonServerConfig = {
 	fileCaching?: boolean
 	serveNodeModules?: false|string
 	ReqResLogging?: boolean
-	transpileTypescript?: boolean
+	transpileTypescript?: 
+		false
+		| "in-place" // transpile .ts files and serve the result at the .ts url source code served at .src.ts
+		| "js" // transpile .ts file and serve the result at .js
 }
 
 // reexport the underlying auth systems
@@ -100,7 +103,7 @@ export default class AutomatonServer{
 		fileCaching: false,
 		serveNodeModules: false,
 		ReqResLogging: false,
-		transpileTypescript: true 
+		transpileTypescript: "in-place"
 	};
 
 	#api: Record<string, ServerApiEndpoint<unknown, unknown>> = {};
@@ -320,11 +323,11 @@ export default class AutomatonServer{
 
 					let dynamic = reply.getDynamic(asset);
 					if(dynamic){
-						return reply.file(asset, {srcpath: requested});
+						return reply.file(asset, {originalpath: requested});
 					}else if(valid(asset)){
-						return reply.file(asset, {srcpath: requested});
+						return reply.file(asset, {originalpath: requested});
 					}else if(valid(asset.replace(".js", ".ts"))){
-						return reply.file(asset.replace(".js", ".ts"), {srcpath: requested});
+						return reply.file(asset.replace(".js", ".ts"), {originalpath: requested});
 					}else if(valid(asset + '.html')){
 						return reply.file(asset + '.html');
 					}else if(valid(asset + '/index.html')){

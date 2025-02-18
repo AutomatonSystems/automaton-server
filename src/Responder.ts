@@ -72,7 +72,7 @@ export default class Responder<R> {
      * @param path
      * @param opts
      */
-	async file(path: string, { status = 200, zip = false, cors = false, unzip = false, srcpath = path} = {}) {
+	async file(path: string, { status = 200, zip = false, cors = false, unzip = false, originalpath = path} = {}) {
 		let ext = path.substring(path.lastIndexOf('.') + 1);
 		ext = ext.replace('/', '').toLocaleLowerCase();
 		let mime = Server.Mimes[ext] || 'text/plain';
@@ -152,11 +152,11 @@ export default class Responder<R> {
 
 					// transpile
 					// TODO rewrite accidental .ts imports (or extensionless!)
-					if(this.server.config.transpileTypescript && path.endsWith(".ts") && srcpath.endsWith(".js")){
+					if(this.server.config.transpileTypescript && path.endsWith(".ts") && originalpath.endsWith(".js")){
 						// store ts
 						let inputtext = content.toString('utf8');
 						let output = ts.transpileModule(inputtext, {
-							fileName: srcpath.replace(".js", ".ts"),
+							fileName: originalpath.replace(".js", ".ts"),
 							compilerOptions: {
 								target: ScriptTarget.ES2024,
 								sourceMap: true

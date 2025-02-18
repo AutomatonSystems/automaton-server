@@ -49,11 +49,15 @@ export default class ServerApiEndpoint<User, Permissions> {
 
 			let meta = <any>h.func ?? {};
 
-			let typedArray = (v:VariableFactory[], opt=false)=>v.map(qv=>`${qv.name}${opt?"?":""}:${qv.type}`).join(", ")
-			let pathParams = typedArray(h.pathVariables);
-			let body = (h.method != "GET" && h.method != "HEAD")?`body:${meta.body ?? 'any'}`:"";
-			let queryParams = h.queryVariables.length?`{${h.queryVariables.map(v=>v.name).join(", ")}}:{${typedArray(h.queryVariables, true)}}={}`:"";
 			let functionName = meta.name ? meta.name : `${h.method}${name}`;
+			
+			let typedArray = (v:VariableFactory[], opt=false)=>v.map(qv=>`${qv.name}${opt?"?":""}:${qv.type}`).join(", ")
+			
+			let pathParams = typedArray(h.pathVariables);
+			let queryParams = h.queryVariables.length?`{${h.queryVariables.map(v=>v.name).join(", ")}}:{${typedArray(h.queryVariables, true)}}={}`:"";
+			
+			let body = (h.method != "GET" && h.method != "HEAD")?`body:${meta.body ?? 'any'}`:"";
+			
 			let returnType = meta.resp ?? "any";
 
 			console.log(`
