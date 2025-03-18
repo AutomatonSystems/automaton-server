@@ -4,17 +4,22 @@ import fs from 'node:fs';
 import cluster from 'node:cluster';
 import v8 from "v8";
 import os from 'os';
-import Path from 'path';
+import { BSON } from 'bsonfy';
 
 import AuthenticationAuthorizationSystem from './auth/AuthenticationAuthorizationSystem.js';
 import MicrosoftAuth from "./auth/MicrosoftAuth.js";
 import ServerApiEndpoint from './api/ServerApiEndpoint.js';
-import Responder from './Responder.js';
+import Responder, { FileModifier } from './Responder.js';
+import { createFile } from '@automaton.systems/snippets/src/DiskIO.js';
+import { NodeModuleImportRewriter } from './resp/NodeModulesImport.js';
+import { TranspileTypescript } from './resp/TranspileTypescript.js';
 
 
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));
 
 let RQ_ID = 0;
+
+export {BSON};
 
 export enum StatusMode {
 	DISABLED, // no /status endpoint
@@ -27,12 +32,7 @@ export type AutomatonServerConfig = {
 	version?: string
 	statusMode?: StatusMode
 	fileCaching?: boolean
-	serveNodeModules?: false|string
 	ReqResLogging?: boolean
-	transpileTypescript?: 
-		false
-		| "in-place" // transpile .ts files and serve the result at the .ts url source code served at .src.ts
-		| "js" // transpile .ts file and serve the result at .js
 }
 
 // reexport the underlying auth systems
@@ -101,9 +101,7 @@ export default class AutomatonServer{
 		version: packagejson.version,
 		statusMode: StatusMode.BASIC,
 		fileCaching: false,
-		serveNodeModules: false,
-		ReqResLogging: false,
-		transpileTypescript: "in-place"
+		ReqResLogging: false
 	};
 
 	#api: Record<string, ServerApiEndpoint<unknown, unknown>> = {};
@@ -115,21 +113,18 @@ export default class AutomatonServer{
 	verbose = true;
 	http: http.Server;
 
-
 	// /status endpoint config
 	statusCache: any = null;
 
+	#fileModifiers: FileModifier[] = [];
 
-	#nodeModulesCache: Record<string, string> = {};
-
-	/**
-	 * 
-	 * @param name 
-	 * @param auth
-	 * 
-	 */
 	constructor(){
 		this.http = http.createServer(this.#handle.bind(this));
+	}
+
+	async createClientTS(path: string){
+		let text = this.#api["/api/"].createClient();
+		await createFile(path, text);
 	}
 
 	setName(name: string): AutomatonServer{
@@ -218,28 +213,19 @@ export default class AutomatonServer{
 		return this;
 	}
 
-	serveNodeModules(path = 'libs'){
-		this.config.serveNodeModules = '/' + path;
+	serveNodeModules(path = 'node_modules'){
+		this.#fileModifiers.push(NodeModuleImportRewriter('/' + path));
 		this.serve('/' + path, './node_modules/');
 		return this;
 	}
+	
+	transpileTypescript(){
+		this.#fileModifiers.push(TranspileTypescript);
+		return this;
+	}
 
-	async getNodeModulesPath(lib: string): Promise<string>{
-		if(!this.#nodeModulesCache[lib]){
-			this.#nodeModulesCache[lib] = await new Promise(resolve=>{
-				fs.readFile(`./node_modules/${lib}/package.json`, {encoding: 'utf8'}, (err, packageText)=>{
-					if(err){
-						// most likely it isn't a node_module afterall!
-						return resolve(null);
-					}
-					let json = JSON.parse(packageText);
-					let truepath = Path.join(this.config.serveNodeModules+'', '/', lib, json.main);
-					truepath = truepath.replace(/\\/g, '/');
-					resolve(truepath);
-				});
-			});
-		}
-		return this.#nodeModulesCache[lib];
+	getFileModifiers(){
+		return this.#fileModifiers;
 	}
 
 	/**

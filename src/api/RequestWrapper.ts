@@ -4,6 +4,7 @@ import AuthenticationAuthorizationSystem from '../auth/AuthenticationAuthorizati
 import Busboy from 'busboy';
 import buffer from "buffer";
 import { Stream } from 'stream';
+import { BSON } from 'bsonfy';
 
 async function JSONParse<T>(req:IncomingMessage):Promise<T>{
 	let text: string = await new Promise((res) => {
@@ -71,7 +72,7 @@ async function FormBodyParse<T>(req: IncomingMessage):Promise<T>{
 				.on('close', ()=>{
 					Promise.allSettled(promises).then(()=>res(obj as T));
 				});
-			this.req.pipe(<any>busboy);
+			req.pipe(<any>busboy);
 		}catch(e){
 			console.warn("Failed to parse FORM body\n", e);
 			res(null);
@@ -96,9 +97,15 @@ async function BlobBodyParse(req: IncomingMessage):Promise<Buffer>{
 
 async function StreamBodyParse(req: IncomingMessage): Promise<Stream>{
 	return new Promise((res) => {
-		let stream: Stream = this.req;
+		let stream: Stream = req;
 		res(stream);
 	});
+}
+
+export async function BSONParse<T>(req: IncomingMessage): Promise<T>{
+	let blob = await BlobBodyParse(req);
+	let bson = <T> BSON.deserialize(new Uint8Array(blob));
+	return bson;
 }
 
 export type BodyParser<X> = ((req:IncomingMessage)=>Promise<X>) | ((req:IncomingMessage)=>X);
@@ -106,6 +113,7 @@ export type BodyParser<X> = ((req:IncomingMessage)=>Promise<X>) | ((req:Incoming
 export const Body = {
 	NONE: <BodyParser<null>>(():null=>null),
 	JSON: JSONParse,
+	BSON: BSONParse,
 	STRING: <BodyParser<string>>StringParse,
 	FORM: FormBodyParse,
 	BLOB: <BodyParser<Buffer>>BlobBodyParse,

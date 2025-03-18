@@ -2,12 +2,12 @@ import fs from 'fs';
 import zlib from 'zlib';
 import Server from './AutomatonServer.js';
 import http from 'http';
-import ts, { ModuleKind, ScriptTarget } from "typescript";
 import AutomatonServer from './AutomatonServer.js';
-type Json =  null | string | number | boolean | Json [] |  Date | { [key: string]: Json };
 
 const fileCache: Record<string, {lastModified:Date, content: Buffer}> = {};
 const dynamicFiles: Record<string, Buffer> = {};
+
+export type FileModifier = (srcpath: string, servepath: string, content: Buffer<ArrayBufferLike>, dynamicFiles: Record<string, Buffer>) => Promise<Buffer<ArrayBufferLike>>;
 
 /**
  * Wrapper class to make returning various common patterns a simple async call
@@ -111,63 +111,10 @@ export default class Responder<R> {
 			resolvePromise => {
 				// send back the file
 				fs.readFile(path, async (_, content) => {
-					// node_modules rewrites
-					if(this.server.config.serveNodeModules && (path.endsWith(".js") || path.endsWith(".ts"))){
-						let text = content.toString('utf8');
-						// find imports that are from node_modules - IE ones that don't have a . or / character
-						// import something from "a-package";
-						let matches = [...text.matchAll(/import ((.*) from )?["']([^.\/].*)['"];?/g)];
-						let active = false;
-						for(let pattern of matches){
-							// grab the library name form out regexp
-							let lib = pattern[3];
-							if(lib.startsWith('#'))
-								lib = lib.substring(1);
-							// resolve it to a node_module path
-							let truepath = await this.server.getNodeModulesPath(lib);
-							// if we found it...
-							if(truepath){
-								text = text.replace(pattern[0], `import ${pattern[1]?pattern[1]:''}"${truepath}";`);
-								active = true;
-							}
-						}
-						matches = [...text.matchAll(/import\(["']([^.\/].*)['"]\)/g)];
-						for(let pattern of matches){
-							// grab the library name form out regexp
-							let lib = pattern[1];
-							if(lib.startsWith('#'))
-								lib = lib.substring(1);
-							// resolve it to a node_module path
-							let truepath = await this.server.getNodeModulesPath(lib);
-							// if we found it...
-							if(truepath){
-								text = text.replace(pattern[0], `import ("${truepath}")`);
-								active = true;
-							}
-						}
-						if(active){
-							content = Buffer.from(text,'utf8');
-						}
+					// rewrites
+					for(let rewriter of this.server.getFileModifiers()){
+						content = await rewriter(originalpath, path, content, dynamicFiles);
 					}
-
-					// transpile
-					// TODO rewrite accidental .ts imports (or extensionless!)
-					if(this.server.config.transpileTypescript && path.endsWith(".ts") && originalpath.endsWith(".js")){
-						// store ts
-						let inputtext = content.toString('utf8');
-						let output = ts.transpileModule(inputtext, {
-							fileName: originalpath.replace(".js", ".ts"),
-							compilerOptions: {
-								target: ScriptTarget.ES2024,
-								sourceMap: true
-							}
-						});
-						// transpiled TS
-						content = Buffer.from(output.outputText,'utf8');
-						// source map
-						dynamicFiles[path.replace(".ts", ".js.map")] = Buffer.from(output.sourceMapText, 'utf8');
-					}
-
 					// cache the file
 					if(lastModified)
 						fileCache[path] = {lastModified, content};

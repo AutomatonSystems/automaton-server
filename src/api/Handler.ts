@@ -3,6 +3,8 @@ import Responder from '../Responder.js';
 import RequestWrapper, { BodyParser } from './RequestWrapper.js';
 import AuthenticationAuthorizationSystem from '../auth/AuthenticationAuthorizationSystem.js';
 import AutomatonServer, { StatusMode } from '../AutomatonServer.js';
+import { TermText } from '@automaton.systems/snippets';
+import { AutomatonJsonResponse } from './ServerApiEndpoint.js';
 
 export type VariableFactory = {
 	name: string;
@@ -49,6 +51,7 @@ function parseVariableFactory(input: string) : VariableFactory{
 }
 
 export type HandlerCallback<User, Permission, X, R> = (res: Responder<R>, args: ReplyArgs<User, Permission, X>) => Promise<any>;
+export type JHandlerCallback<User, Permission, X, R> = (args: ReplyArgs<User, Permission, X>) => Promise<R>;
 
 export type ReplyArgs<User, Permissions, X> = {
 	user: User
@@ -59,7 +62,7 @@ export type ReplyArgs<User, Permissions, X> = {
 	[index: string]: any
 }
 
-export default class Handler<User, Permissions, X, R> {
+export abstract class AbstractHandler<User, Permissions, X, R> {
 	server: AutomatonServer;
 
 	path: RegExp;
@@ -71,7 +74,6 @@ export default class Handler<User, Permissions, X, R> {
 
 	method: string;
 
-	func: HandlerCallback<User, Permissions, X, R>;
 
 	#auth: AuthenticationAuthorizationSystem<User, Permissions>;
 
@@ -86,7 +88,7 @@ export default class Handler<User, Permissions, X, R> {
 	 * @param params 
 	 * @param func 
 	 */
-	constructor(server: AutomatonServer,rawpath: string, method: string, body: BodyParser<X>, auth: AuthenticationAuthorizationSystem<User, Permissions>, params: string[], func: HandlerCallback<User, Permissions, X, R>) {
+	constructor(server: AutomatonServer,rawpath: string, method: string, body: BodyParser<X>, auth: AuthenticationAuthorizationSystem<User, Permissions>, params: string[]) {
 		this.server = server;
 		// extract path argz
 		let path = rawpath;
@@ -107,14 +109,14 @@ export default class Handler<User, Permissions, X, R> {
 
 		this.method = method;
 
-		this.func = func;
-
 		// magic client string
 		let p = rawpath;
 		for(let pv of this.pathVariables)
 			p = p.replace(/\/{[\w-]+(?::[a-z]+)?}/, "/${"+pv.name+"}")
 		this.pathString = p;
 	}
+
+	abstract runFunc(reply: Responder<R>, args: ReplyArgs<User, Permissions, X>): Promise<boolean>;
 
     /**
      * @param method
@@ -165,10 +167,10 @@ export default class Handler<User, Permissions, X, R> {
 
 		// and call the function
 		try{
-			return await this.func(reply, args);
+			return await this.runFunc(reply, args);
 		}catch(e){
 			// the function failed. Error 500.
-			console.warn(`Failed to handle ${method}:${path}`, e);
+			console.warn(`${TermText.bgRed(` ${this.server.config.name ?? "AutomatonServer"} `)} Failed to handle ${method}:${path}\n`, e);
 			let msg : any = {
 				"status": "Internal Server Error"
 			};
@@ -176,8 +178,41 @@ export default class Handler<User, Permissions, X, R> {
 				msg.error = e.message;
 				msg.trace = e.stack;
 			}
-			await reply.error(msg, 500);
+			//await reply.error(msg, 500);
+			return await reply.error(msg, 500);
 		}
 	}
 }
 
+
+export default class Handler<User, Permissions, X, R> extends AbstractHandler<User, Permissions, X, R>{
+	func: HandlerCallback<User, Permissions, X, R>;
+
+	constructor(server: AutomatonServer,rawpath: string, method: string, body: BodyParser<X>, auth: AuthenticationAuthorizationSystem<User, Permissions>, params: string[], func: HandlerCallback<User, Permissions, X, R>) {
+		super(server, rawpath, method, body, auth, params);
+		this.func = func;
+	}
+
+	async runFunc(reply: Responder<R>, args: ReplyArgs<User, Permissions, X>){
+		return this.func(reply, args);
+	}
+}
+
+
+export class HandlerJ<User, Permissions, X, R> extends AbstractHandler<User, Permissions, X, AutomatonJsonResponse<R>>{
+	func: JHandlerCallback<User, Permissions, X, R>;
+	constructor(server: AutomatonServer,rawpath: string, method: string, body: BodyParser<X>, auth: AuthenticationAuthorizationSystem<User, Permissions>, params: string[], func: JHandlerCallback<User, Permissions, X, R>) {
+		super(server, rawpath, method, body, auth, params);
+		this.func = func;
+	}
+
+	override async runFunc(reply: Responder<AutomatonJsonResponse<R>>, args: ReplyArgs<User, Permissions, X>){
+		let start = Date.now();
+		try{
+			let result = await this.func(args);
+			return await reply.json({status:"ok", took: Date.now() - start, data: result}, { status: 200 });
+		}catch(e){
+			return await reply.json({"status":"error", "error": e.message, took: Date.now() - start, "path": this.pathString }, { status: 500 });
+		}
+	}
+}
