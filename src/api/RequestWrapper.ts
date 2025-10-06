@@ -82,15 +82,18 @@ async function FormBodyParse<T>(req: IncomingMessage):Promise<T>{
 
 async function BlobBodyParse(req: IncomingMessage):Promise<Buffer>{
 	return new Promise((res) => {
-		console.log("blob")
-		console.log(buffer.constants.MAX_LENGTH.toLocaleString());
 		let data: any[] = [];
 		req.on('data', (chunk)=>{
 			data.push(chunk);
 		}).on('end', ()=>{
-			let length = data.map(b=>b.length).reduce((t,v)=>t+v, 0);
-			console.log("buffer length", length.toLocaleString());
-			res(Buffer.concat(data) as Buffer);
+			if(req.headers['content-length']){
+				let len = parseInt(req.headers['content-length']);
+				let buffer = Buffer.concat(data, len) as Buffer;
+				res(buffer);
+			}else {
+				res(Buffer.concat(data) as Buffer);
+			}
+			
 		});
 	});
 }

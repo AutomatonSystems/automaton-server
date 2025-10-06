@@ -13,7 +13,7 @@
 		"newLine": "lf",
 		"sourceMap": false
 	},
-	"include": ["./src/**/*"],
+	"include": ["./src/**/*", "src/LemonJelly.ts", "src/lemonjelly-jsx.d.ts"],
 	"typeAcquisition": {
         "enable": true
     }

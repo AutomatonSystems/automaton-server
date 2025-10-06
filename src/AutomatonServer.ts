@@ -1,5 +1,6 @@
 import URL from 'node:url';
 import http from 'node:http';
+// import https from 'node:https';
 import fs from 'node:fs';
 import cluster from 'node:cluster';
 import v8 from "v8";
@@ -12,14 +13,16 @@ import ServerApiEndpoint from './api/ServerApiEndpoint.js';
 import Responder, { FileModifier } from './Responder.js';
 import { createFile } from '@automaton.systems/snippets/src/DiskIO.js';
 import { NodeModuleImportRewriter } from './resp/NodeModulesImport.js';
-import { TranspileTypescript } from './resp/TranspileTypescript.js';
+import { TranspileTypescript, TranspileTSX } from './resp/TranspileTypescript.js';
 
-
+let serverPackageJson = JSON.parse(fs.readFileSync(`${import.meta.dirname}/../package.json`, {encoding: 'utf8'}));
 let packagejson = JSON.parse(fs.readFileSync('./package.json', {encoding: 'utf8'}));
 
 let RQ_ID = 0;
 
-export {BSON};
+export { BSON };
+
+export { LemonJelly } from "./LemonJelly.js";
 
 export enum StatusMode {
 	DISABLED, // no /status endpoint
@@ -87,6 +90,7 @@ export default class AutomatonServer{
 		html: 'text/html',
 		js :'application/javascript',
 		ts :'application/javascript', // via transpilation
+		tsx :'application/javascript', // via transpilation
 		wasm: 'application/wasm',
 		css: 'text/css',
 		jpg: 'image/jpg',
@@ -111,7 +115,7 @@ export default class AutomatonServer{
 	#auth: AuthenticationAuthorizationSystem<unknown,unknown> = AuthenticationAuthorizationSystem.NONE;
 
 	verbose = true;
-	http: http.Server;
+	server: http.Server;
 
 	// /status endpoint config
 	statusCache: any = null;
@@ -119,7 +123,12 @@ export default class AutomatonServer{
 	#fileModifiers: FileModifier[] = [];
 
 	constructor(){
-		this.http = http.createServer(this.#handle.bind(this));
+		let handler = this.#handle.bind(this);
+		/*this.http = https.createServer({
+			key: readFileSync('node_modules/@automaton.systems/server/secrets/server-key.pem'),
+			cert: readFileSync('node_modules/@automaton.systems/server/secrets/server-cert.pem'),
+		}, handler);*/
+		this.server = http.createServer({}, handler);
 	}
 
 	async createClientTS(path: string){
@@ -139,16 +148,16 @@ export default class AutomatonServer{
 
 	start(port: number){
 		// actually start the server
-		this.http.listen(port, () => {
+		this.server.listen(port, () => {
 			if(this.verbose){
-				console.log(`'${this.config.name}' server running at port ${port}`);
+				console.log(`'${this.config.name}' v${this.config.version} server (@automaton.systems/server:${serverPackageJson.version}) running at port ${port}`);
 			}
 		});
 		return this;
 	}
 
 	async stop(){
-		return new Promise(res=>this.http.close(res))
+		return new Promise(res=>this.server.close(res))
 	}
 
 	/**
@@ -213,6 +222,10 @@ export default class AutomatonServer{
 		return this;
 	}
 
+ 	/**
+	 * Inline file modifications...
+	 */
+
 	serveNodeModules(path = 'node_modules'){
 		this.#fileModifiers.push(NodeModuleImportRewriter('/' + path));
 		this.serve('/' + path, './node_modules/');
@@ -221,6 +234,11 @@ export default class AutomatonServer{
 	
 	transpileTypescript(){
 		this.#fileModifiers.push(TranspileTypescript);
+		return this;
+	}
+
+	transpileTSX(){
+		this.#fileModifiers.push(TranspileTSX);
 		return this;
 	}
 
@@ -245,6 +263,14 @@ export default class AutomatonServer{
 		return this;
 	}
 
+	/**
+	 * 
+	 * Create a API root, from which handlers for subpaths can be created
+	 * 
+	 * @param root 
+	 * @param auth 
+	 * @returns 
+	 */
 	api<User, Permissions>(root: string, auth:AuthenticationAuthorizationSystem<User, Permissions> = <AuthenticationAuthorizationSystem<User, Permissions>>this.#auth): ServerApiEndpoint<User, Permissions>{
 		if(!root.startsWith('/')){
 			root='/'+root;
@@ -314,6 +340,8 @@ export default class AutomatonServer{
 						return reply.file(asset, {originalpath: requested});
 					}else if(valid(asset.replace(".js", ".ts"))){
 						return reply.file(asset.replace(".js", ".ts"), {originalpath: requested});
+					}else if(valid(asset.replace(".js", ".tsx"))){
+						return reply.file(asset.replace(".js", ".tsx"), {originalpath: requested});
 					}else if(valid(asset + '.html')){
 						return reply.file(asset + '.html');
 					}else if(valid(asset + '/index.html')){

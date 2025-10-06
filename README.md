@@ -30,3 +30,21 @@ Creates a new server with no authentication on localhost (port 80).
 * This server will serve the contents of the local directory `/public/` at http://localhost:80/ by default serving index.html at root
 * HTTP GET Requests to http://localhost:80/api/item/17 will get the json response `{"id": 17}`, note the value 17 has been correctly parsed to a number
 
+## Magic
+
+```javascript
+server.serveNodeModules();
+```
+Serve content from the node_modules folder in the same way you would import it in node. Currently rather flakey, and certainly not a good idea, but useful for prototyping.
+
+
+```javascript
+server.transpileTypescript();
+```
+.ts Files served by typescript will auto-magically be transpiled to .js when requested. This allows running a ts website without any build step. Full source maps are generated so stacktraces use the correct line numbers.
+
+```javascript
+server.createTSClient("./path/to/ClientAPI.ts");
+```
+Creates (or replaces) a ClientAPI implementation for the web-frontend to call. Use of $meta in api setup can help make this auto-generated API a bit more useful.
+
