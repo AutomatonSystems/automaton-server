@@ -89,6 +89,8 @@ export default class AutomatonServer{
 	static Mimes: Record<string, string>= {
 		html: 'text/html',
 		js :'application/javascript',
+		cjs :'application/javascript',
+		mjs :'application/javascript',
 		ts :'application/javascript', // via transpilation
 		tsx :'application/javascript', // via transpilation
 		wasm: 'application/wasm',

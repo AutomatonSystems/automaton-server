@@ -10,12 +10,17 @@ export function NodeModuleImportRewriter(servePath: string): FileModifier{
 	async function getNodeModulesPath(lib: string): Promise<string>{
 		if(nodeModulesCache[lib] === undefined){
 			try{
-				let packageText = await readFile(`./node_modules/${lib}/package.json`, 'utf8');
-				let json = JSON.parse(packageText);
-				let truepath = join(servePath, '/', lib, json.main);
-				truepath = truepath.replace(/\\/g, '/');
-				nodeModulesCache[lib] = truepath;
+				if(lib.endsWith(".css")){
+					nodeModulesCache[lib] = null;
+				}else{
+					let packageText = await readFile(`./node_modules/${lib}/package.json`, 'utf8');
+					let json = JSON.parse(packageText);
+					let truepath = join(servePath, '/', lib, json.module ?? json.main);
+					truepath = truepath.replace(/\\/g, '/');
+					nodeModulesCache[lib] = truepath;
+				}
 			} catch (e){
+				console.warn(`NodeModuleImportRewriter.getNodeModulesPath failed to resolve node module import "${lib}"`, e);
 				nodeModulesCache[lib] = null;
 			}
 		}

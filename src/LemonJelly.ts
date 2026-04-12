@@ -37,11 +37,20 @@ export function LemonJelly(type: string, props: Record<string, any>, ...children
 	for(let child of children){
 		if (typeof child === "function") {
 			const span = document.createElement("span");
-			span.innerText = child();
+			let result = child();
+			if(result instanceof HTMLElement)
+				span.appendChild(result);
+			else
+				span.innerText = result;
 			element.append(span);
 			renderCallbacks.push(() => {
-				let value = child();
-				span.innerText = value;
+				let result = child();
+				if(result instanceof HTMLElement){
+					span.innerHTML = "";
+					span.appendChild(result);
+				}else{
+					span.innerText = result;
+				}
 			});
 		} else if(child.then){
 			let span = document.createElement("span");

@@ -9,7 +9,7 @@
 		"test": "c8 mocha './test/*.js'",
 		"start": "tsx example/example",
 		"build": "tsc --noCheck",
-		"dev": "tsc --watch"
+		"dev": "tsc --noCheck --watch"
 	},
 	"author": "",
 	"license": "ISC",
